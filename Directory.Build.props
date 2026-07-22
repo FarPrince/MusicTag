@@ -1,0 +1,25 @@
+<Project>
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- MusicTag.App is a WPF executable and needs the Windows-specific TFM.
+       NOTE: matched with StartsWith (not exact equality) because WPF's XAML markup
+       compilation spawns a temporary project named "MusicTag.App_<hash>_wpftmp" in the
+       same folder — an exact-equality condition would miss it, leave it without
+       net8.0-windows/UseWPF, and fail with a mysterious missing
+       "_CompileTemporaryAssembly" target. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.StartsWith('MusicTag.App'))">
+    <TargetFramework>net8.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <!-- MusicTag.Core and MusicTag.Tests stay plain net8.0 (no WPF reference) so Core
+       remains portable/testable and Tests can run without an STA/WPF host. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'MusicTag.Core' OR '$(MSBuildProjectName)' == 'MusicTag.Tests'">
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+</Project>

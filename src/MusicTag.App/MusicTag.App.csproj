@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MusicTag.Core\MusicTag.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.142" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <!-- WinForms is referenced only as a fallback folder-picker path (FolderBrowserDialog)
+         in case Microsoft.Win32.OpenFolderDialog misbehaves on a given Windows version —
+         see Services/FilePickerService.cs and plan risk #4. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WFAC010: WinForms' analyzer wants high-DPI set via its own API/property, but we
+         only use WinForms for a single fallback modal dialog (FolderBrowserDialog) — the
+         manifest's PerMonitorV2 declaration (required by the plan) governs process-wide
+         DPI awareness for the whole app, WPF included, so this warning is a false
+         positive in this specific WPF-primary/WinForms-fallback setup. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <!-- Per user feedback ("add a logo to the top left of the page and the taskbar"):
+         embeds Assets/logo.ico as the exe's native Win32 icon resource, which Explorer and
+         the taskbar both read directly from the .exe file (e.g. before the app is even
+         running, and as the fallback Window icon). MainWindow.xaml additionally sets its
+         own Window.Icon (same file, for the live taskbar/Alt-Tab icon and default window
+         icon) and the custom ui:TitleBar's Icon (a small ui:ImageIcon, for the top-left of
+         the in-window title bar row itself, since ExtendsContentIntoTitleBar removes the
+         OS-drawn one that would otherwise show it). -->
+    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\logo.ico" />
+    <Resource Include="Assets\logo.png" />
+  </ItemGroup>
+
+</Project>

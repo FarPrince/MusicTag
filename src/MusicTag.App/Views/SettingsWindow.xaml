@@ -1,0 +1,63 @@
+<ui:FluentWindow x:Class="MusicTag.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:vm="clr-namespace:MusicTag.App.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
+        Title="Settings" Height="420" Width="480"
+        MinHeight="380" MinWidth="420"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Acrylic"
+        WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Settings" />
+
+        <StackPanel Grid.Row="1" Margin="16">
+            <TextBlock Text="Default startup folder" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                       Text="Opened automatically on launch when MusicTag isn't started from Explorer's right-click menu. Leave blank to start with the Open Folder prompt." />
+            <DockPanel Margin="0,0,0,16">
+                <ui:Button Content="Browse…" DockPanel.Dock="Right" Margin="8,0,0,0"
+                           Command="{Binding BrowseDefaultFolderCommand}" />
+                <ui:TextBox Text="{Binding DefaultStartupFolder, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="(none)" />
+            </DockPanel>
+
+            <TextBlock Text="Theme" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                       Text="Applies instantly. &quot;System&quot; follows the Windows light/dark setting, including while the app stays open." />
+            <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}"
+                      Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+            <TextBlock Text="Explorer integration" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"
+                       Text="Adds &quot;Open with MusicTag&quot; to the right-click menu for folders and the empty space inside a folder. On Windows 11 it shows under &quot;Show more options&quot;." />
+            <ui:Button Command="{Binding ToggleExplorerIntegrationCommand}" HorizontalAlignment="Left">
+                <ui:Button.Style>
+                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                        <Setter Property="Content" Value="Register Explorer Integration" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ExplorerIntegrationRegistered}" Value="True">
+                                <Setter Property="Content" Value="Unregister Explorer Integration" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ui:Button.Style>
+            </ui:Button>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
+            <ui:Button Content="Cancel" Margin="0,0,8,0" Command="{Binding CancelCommand}" />
+            <ui:Button Content="Save" Appearance="Primary" Command="{Binding SaveCommand}" />
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>

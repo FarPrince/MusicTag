@@ -1,0 +1,99 @@
+<UserControl x:Class="MusicTag.App.Controls.AlbumArtControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:behaviors="clr-namespace:MusicTag.App.Behaviors"
+             mc:Ignorable="d"
+             x:Name="Root"
+             Focusable="True"
+             AllowDrop="True"
+             PreviewMouseLeftButtonDown="OnPreviewMouseLeftButtonDown"
+             PreviewMouseRightButtonUp="OnPreviewMouseRightButtonUp"
+             PreviewKeyDown="OnPreviewKeyDown"
+             DragOver="OnDragOver"
+             Drop="OnDrop"
+             d:DesignHeight="260" d:DesignWidth="220">
+
+    <!--
+        M6 scope, per plan sections 3-5: single selection shows that file's art with working
+        Replace (file-picker)/Remove; multi-selection shows either the common art (all agree,
+        via AlbumArtViewModel's byte-equality comparison) or the "multiple different images"
+        placeholder below when IsMixed. Ctrl+V paste (ClipboardPasteImageBehavior) and
+        drag-drop (this control's own Drop handler) both funnel into the same
+        ApplyImageBytesCommand as Replace, so every input source produces the identical
+        all-or-nothing batch-apply CompositeEditCommand.
+
+        Per user feedback ("move the album art options to a context menu (right click). Remove
+        the text about 'Drop, Ctrl+V to paste...'"): Replace/Copy/Paste/Extract/Remove used to be
+        a row of always-visible buttons (plus a hint line spelling out drag-drop/paste/copy) —
+        now a right-click context menu built in code-behind (see OnPreviewMouseRightButtonUp),
+        matching the same "build a ContextMenu in code, no hint text needed" pattern already
+        established for the main grid's column chooser.
+
+        Kept "dumb" like the M2 original: every DP here is set explicitly at the usage site
+        (MainWindow.xaml) rather than the control inheriting AlbumArtViewModel as its own
+        DataContext, so it stays plain-old-WPF-control-shaped and independent of any specific
+        view model type. Internal bindings therefore target ElementName=Root (this control's
+        own DPs), not an inherited DataContext.
+    -->
+    <i:Interaction.Behaviors>
+        <behaviors:ClipboardPasteImageBehavior PasteImageCommand="{Binding ApplyImageBytesCommand, ElementName=Root}" />
+    </i:Interaction.Behaviors>
+
+    <StackPanel>
+        <!-- Per user feedback ("album art should be seen in the standard square ratio"): a
+             plain vertical StackPanel sizes each child to its own desired height and stretches
+             it to the StackPanel's full (variable, resizable-column-driven) width, so the old
+             Border ended up as wide as the right column happened to be but only as tall as
+             MinHeight=120 — never actually square. Fixed size (rather than binding Width to
+             ActualHeight or similar) keeps the preview a predictable, real square regardless of
+             how the user has resized the GridSplitter/column. -->
+        <Border Width="200" Height="200"
+                HorizontalAlignment="Center"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Background="{DynamicResource ControlFillColorDefaultBrush}">
+            <Grid>
+                <Image x:Name="ArtImage"
+                       Stretch="Uniform"
+                       Margin="4"
+                       Visibility="Collapsed" />
+                <TextBlock x:Name="Placeholder"
+                           Text="No Album Art"
+                           Opacity="0.6"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Visibility="Visible" />
+                <TextBlock x:Name="MixedPlaceholder"
+                           Text="Multiple different images"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Margin="12"
+                           Opacity="0.7"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed" />
+            </Grid>
+        </Border>
+
+        <!-- Per user feedback ("make the text about image details larger... make the text of
+             both consistent and also slightly larger") — same FontSize=12/Opacity=0.8 as
+             EditPanelView.xaml's technical-info text (bumped from the old FontSize=10/11 on
+             both). Visibility is managed in code-behind (see UpdateVisualState) rather than a
+             converter, alongside the image/placeholder state it already updates in lockstep
+             with.
+             Per further feedback ("get rid of 'Album art' title, make the album art info
+             centered and make the box fit the size of that") and then ("get rid of the
+             background box"): no header line, no Border/background — this is now a plain
+             centered TextBlock rather than a boxed panel (renamed from DetailsBorder to
+             DetailsText accordingly — see code-behind). -->
+        <TextBlock x:Name="DetailsText"
+                   Text="{Binding ArtDetails, ElementName=Root}"
+                   HorizontalAlignment="Center" TextAlignment="Center"
+                   Margin="0,8,0,0" Opacity="0.8" FontSize="12" />
+    </StackPanel>
+</UserControl>

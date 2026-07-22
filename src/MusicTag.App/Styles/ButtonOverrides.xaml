@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!--
+        Per user feedback ("when clicking buttons, the text shouldn't turn black — the button
+        should change shade instead"): confirmed empirically (by holding a button down and
+        sampling pixel color) that WPF-UI's default Button style turns the icon/text content
+        noticeably darker — down to literal black — on MouseOver/Pressed in dark theme, rather
+        than only shading the background as Fluent design normally does. BasedOn the library's
+        own default style (keeps its shape/padding/corner radius/template) with only Foreground
+        pinned to a constant, theme-aware brush across every interaction state — the
+        background/border still shade via the base style's own MouseOver/Pressed visuals (an
+        accent-tinted highlight), just without dragging the text/icon color down with it.
+
+        This MUST live in its own ResourceDictionary merged in AFTER ui:ControlsDictionary
+        (see App.xaml), not as a sibling resource declared directly alongside
+        ResourceDictionary.MergedDictionaries in the same dictionary — a real bug hit here: doing
+        it inline made BasedOn="{StaticResource {x:Type ui:Button}}" fail to resolve to
+        WPF-UI's actual default style (a documented WPF self-reference gotcha for implicit
+        styles), silently producing a blank Style with only Foreground set — no template, no
+        Background, no CornerRadius — which rendered as a plain unstyled white square-cornered
+        WPF Button. Splitting this into a separate merged dictionary lets the BasedOn reference
+        correctly resolve to the dictionary merged immediately before it.
+    -->
+    <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>

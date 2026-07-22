@@ -1,0 +1,95 @@
+<ui:FluentWindow x:Class="MusicTag.App.Views.ShortcutsReferenceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        mc:Ignorable="d"
+        Title="Keyboard Shortcuts" Height="460" Width="420"
+        MinHeight="360" MinWidth="360"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Acrylic"
+        WindowStartupLocation="CenterOwner">
+
+    <!--
+        M8, plan section 8 (Help menu -> "Keyboard Shortcuts"): a simple static reference — no
+        view model, since this window has no state of its own, just a fixed list matching every
+        KeyBinding actually wired in MainWindow.xaml/EditPanelView.xaml/
+        ClipboardPasteImageBehavior. Kept as a plain two-column Grid rather than a DataGrid/
+        ItemsControl-over-a-collection, since the list is short, fixed at compile time, and
+        never needs to be data-bound or reordered at runtime.
+    -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Keyboard Shortcuts" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20,12,20,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+
+                    <!-- File / general -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+O" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Open a folder" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="F5" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Refresh the currently open folder" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+S" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Save every pending change in the open folder" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <!-- Edit -->
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl+Z" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Undo" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Ctrl+Y" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="Redo" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Ctrl+A" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="5" Grid.Column="1" Text="Select every file in the list (when a text field doesn't have focus)" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="F2" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="6" Grid.Column="1" Text="Rename the selected file (single selection only)" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Arrow keys" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="7" Grid.Column="1" Text="Move the file-list selection (native grid navigation)" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <!-- Edit panel / album art -->
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Delete" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="8" Grid.Column="1" Text="Clear the focused field's value (when the edit panel has focus)" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Ctrl+V" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="9" Grid.Column="1" Text="Paste an image as album art (only when the album art panel has focus — doesn't affect pasting into a text field)" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Enter" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="10" Grid.Column="1" Text="Commit the focused field or filename edit" TextWrapping="Wrap" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
+            <ui:Button Content="Close" Appearance="Primary" Click="OnCloseClick" />
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>

@@ -1,0 +1,415 @@
+<ui:FluentWindow x:Class="MusicTag.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:vm="clr-namespace:MusicTag.App.ViewModels"
+        xmlns:views="clr-namespace:MusicTag.App.Views"
+        xmlns:controls="clr-namespace:MusicTag.App.Controls"
+        xmlns:conv="clr-namespace:MusicTag.App.Converters"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:behaviors="clr-namespace:MusicTag.App.Behaviors"
+        xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
+        Title="MusicTag" Height="600" Width="1000"
+        MinHeight="400" MinWidth="700"
+        Icon="/Assets/logo.ico"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Acrylic"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToCollapsedConverter" />
+        <conv:NullableIntToStringConverter x:Key="NullableIntConverter" />
+    </Window.Resources>
+
+    <!-- M8: F2 (rename) and Ctrl+A (select-all-in-grid) both need to call a real DataGrid
+         instance method (BeginEdit/SelectAll) that has no view-model-friendly command
+         equivalent — the same "code-behind bridges to WPF" reasoning already used for
+         CellEditEnding (see MainWindow.xaml.cs). Routed through RoutedUICommands + a
+         CommandBinding rather than a raw KeyDown handler so they still show up as ordinary
+         KeyBinding gestures (consistent with every other shortcut here, and so the Edit menu's
+         MenuItems below can share the exact same Command). -->
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static views:MainWindow.BeginRenameCommand}"
+                         Executed="OnBeginRenameExecuted" CanExecute="OnBeginRenameCanExecute" />
+        <CommandBinding Command="{x:Static views:MainWindow.SelectAllFilesCommand}"
+                         Executed="OnSelectAllFilesExecuted" CanExecute="OnSelectAllFilesCanExecute" />
+    </Window.CommandBindings>
+
+    <Window.InputBindings>
+        <!-- Ctrl+O: open a folder. -->
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenFolderCommand}" />
+        <!-- Ctrl+S saves every dirty file in the currently open folder (not just the
+             selection) — matches Mp3tag semantics per the plan. -->
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveAllCommand}" />
+        <!-- Ctrl+Z/Ctrl+Y undo/redo, F5 refresh. -->
+        <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoCommand}" />
+        <KeyBinding Key="Y" Modifiers="Control" Command="{Binding RedoCommand}" />
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+        <!-- Ctrl+A: select every row in the file grid. Naturally scoped without any extra
+             work — WPF resolves a KeyBinding by walking outward from whichever element
+             currently has keyboard focus, starting with that element's OWN input/command
+             bindings first. TextBox has a built-in class-level Ctrl+A binding (select all
+             *text*) that's always found before this Window-level one, so typing Ctrl+A while
+             editing a field (or the Comment box, or the inline rename TextBox) never reaches
+             here — only when focus is somewhere with no such binding of its own (e.g. the grid
+             itself) does resolution continue outward to this KeyBinding. -->
+        <KeyBinding Key="A" Modifiers="Control" Command="{x:Static views:MainWindow.SelectAllFilesCommand}" />
+        <!-- F2: rename the single selected file inline (see OnBeginRenameExecuted) — same
+             one-file-only scope as the grid's existing double-click/F2-on-cell rename. -->
+        <KeyBinding Key="F2" Command="{x:Static views:MainWindow.BeginRenameCommand}" />
+        <!-- Ctrl+V (paste image into album art) is deliberately NOT here — plan section 5
+             requires it scoped to only when the album art control itself has focus, not
+             global. It's wired directly on AlbumArtControl via
+             Behaviors.ClipboardPasteImageBehavior instead (see that class's own doc comment
+             for exactly how WPF's tunneling PreviewKeyDown routing gives that scoping for
+             free). A Window-level binding here would fire regardless of focus and would be
+             the wrong shape entirely. -->
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: custom title bar (required because ExtendsContentIntoTitleBar removes
+             the default one). Per user feedback ("add a logo to the top left of the
+             page") — TitleBar.Icon renders at the title bar's leading edge, left of the
+             "MusicTag" text, using the same logo as the taskbar/exe icon (see
+             MusicTag.App.csproj's ApplicationIcon and this Window's own Icon). -->
+        <ui:TitleBar Grid.Row="0" Title="MusicTag">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="/Assets/logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <!-- Row 1: icon toolbar. Per user feedback, the classic File/Edit/View/Tools/Help menu
+             bar that used to live here was pure duplication of these same buttons (every menu
+             item pointed at a command already available below) plus visual clutter (a large
+             gap between the title bar and the toolbar) — removed outright rather than kept
+             "for discoverability." Keyboard Shortcuts, previously Help-menu-only, gets its own
+             toolbar button instead so nothing is lost. Save is wired to Ctrl+S's same command
+             (still available as an explicit "retry now" action — see
+             MainWindowViewModel.SaveAllAsync — but every edit already auto-saves on its own, no
+             manual save is required); Undo/Redo enabled state is driven by
+             EditHistory.CanUndo/CanRedo via MainWindowViewModel's own UndoCommand/RedoCommand
+             CanExecute (see OnEditHistoryChanged). -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="12,4">
+            <ui:Button Content="Open Folder"
+                       Icon="{ui:SymbolIcon FolderOpen24}"
+                       Command="{Binding OpenFolderCommand}" />
+            <ui:Button Content="Save" Icon="{ui:SymbolIcon Save24}"
+                       Command="{Binding SaveAllCommand}" Margin="8,0,0,0"
+                       ToolTip="Edits already auto-save — this retries any save that previously failed" />
+            <ui:Button Content="Undo" Icon="{ui:SymbolIcon ArrowUndo24}"
+                       Command="{Binding UndoCommand}" Margin="8,0,0,0" />
+            <ui:Button Content="Redo" Icon="{ui:SymbolIcon ArrowRedo24}"
+                       Command="{Binding RedoCommand}" Margin="8,0,0,0" />
+            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}"
+                       Command="{Binding RefreshCommand}" Margin="8,0,0,0" />
+            <!-- Per user feedback ("Theme button should switch between Acrylic and Mica") —
+                 this used to cycle System -> Light -> Dark -> System; that full choice is still
+                 available via the Settings window's theme picker, so repurposing this toolbar
+                 button for a quick backdrop-material toggle loses no functionality — see
+                 MainWindowViewModel.ToggleBackdrop. -->
+            <ui:Button Content="Backdrop" Icon="{ui:SymbolIcon Blur24}"
+                       Command="{Binding ToggleBackdropCommand}" Margin="20,0,0,0"
+                       ToolTip="Cycle Acrylic / Mica window backdrop" />
+            <ui:Button Content="Settings" Icon="{ui:SymbolIcon Settings24}"
+                       Command="{Binding OpenSettingsCommand}" Margin="8,0,0,0" />
+            <ui:Button Content="Keyboard Shortcuts" Icon="{ui:SymbolIcon Keyboard24}"
+                       Command="{Binding ShowShortcutsCommand}" Margin="8,0,0,0" />
+        </StackPanel>
+
+        <!-- Row 2: file grid (left) + GridSplitter + AlbumArtControl/edit panel (right), per
+             plan section 5. As of M6, the right column is AlbumArtControl (bound to its own
+             AlbumArtViewModel) stacked above EditPanelView — siblings, not nested. -->
+        <Grid Grid.Row="2" Margin="12,0,12,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="300" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="360" MinWidth="300" MaxWidth="480" />
+            </Grid.ColumnDefinitions>
+
+            <ui:DataGrid x:Name="FileGrid"
+                         Grid.Column="0"
+                         ItemsSource="{Binding Files}"
+                         AutoGenerateColumns="False"
+                         IsReadOnly="False"
+                         HeadersVisibility="Column"
+                         SelectionMode="Extended"
+                         SelectionUnit="FullRow"
+                         CanUserAddRows="False"
+                         GridLinesVisibility="Horizontal"
+                         CellEditEnding="OnFileGridCellEditEnding"
+                         PreviewMouseLeftButtonDown="OnFileGridPreviewMouseLeftButtonDown"
+                         PreviewMouseRightButtonUp="OnFileGridPreviewMouseRightButtonUp"
+                         PreviewKeyDown="OnFileGridPreviewKeyDown"
+                         AlternationCount="2"
+                         RowBackground="Transparent"
+                         AlternatingRowBackground="{DynamicResource ControlFillColorSecondaryBrush}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.CanContentScroll="True">
+                <!--
+                    M8 DataGrid theming hardening (plan risk #3), concretely confirmed rather
+                    than assumed: WPF-UI 4.3.0's own DefaultDataGridRowStyle sets RowBackground
+                    to a hardcoded literal transparent brush and never sets
+                    AlternatingRowBackground at all, AND its row ControlTemplate's
+                    AlternationIndex==0/1 triggers unconditionally repaint the row's actual
+                    background element from the DataGrid's own RowBackground/
+                    AlternatingRowBackground properties — verified by reflecting the compiled
+                    style/template at runtime (see the M8 investigation), not by guessing. Two
+                    consequences fixed here:
+                      1. Without AlternationCount set (the WPF default, 0), every row reports
+                         AlternationIndex 0, so *only* RowBackground ever painted anything —
+                         AlternatingRowBackground above would otherwise never even be reached.
+                         AlternationCount="2" makes rows actually alternate.
+                      2. The M5-era dirty-row indicator below used to also set `Background` via
+                         a Style.Trigger, but that value is silently masked: the same
+                         AlternationIndex trigger re-asserts DGR_Border.Background from
+                         RowBackground/AlternatingRowBackground on every row regardless, since
+                         Style triggers here compete with the ControlTemplate's own internal
+                         triggers on the actual painted element, not the exposed
+                         DataGridRow.Background property. The dirty cue is therefore no longer
+                         attempted via Background at all — see the dedicated dirty-indicator
+                         column below instead, which paints its own element directly rather
+                         than fighting the row template. FontStyle=Italic below is unaffected
+                         by this (FontStyle isn't touched by any row-template trigger and
+                         inherits normally into cell content), so it's kept as-is.
+                -->
+                <!-- DataGrid.SelectedItems is a read-only IList proxy, not a bindable DP —
+                     this attached behavior (M5, via Microsoft.Xaml.Behaviors.Wpf) mirrors it
+                     into MainWindowViewModel.SelectedFiles one add/remove at a time, which
+                     EditPanelViewModel then rebuilds its whole bound state from. -->
+                <i:Interaction.Behaviors>
+                    <behaviors:DataGridSelectedItemsBehavior SelectedItems="{Binding SelectedFiles}" />
+                </i:Interaction.Behaviors>
+                <ui:DataGrid.RowStyle>
+                    <!-- Dirty-row visual indicator, per user feedback: a separate unlabeled
+                         "dirty dot" column used to sit to the left of Filename (a fixed-width
+                         glyph column with no header text) — reported back as a mystery
+                         unexplained button, so it's removed entirely; italic font on the whole
+                         row (below) is the sole dirty indicator now, with no unlabeled UI
+                         element to explain. A DataTrigger on the nested AudioFile.IsDirty path —
+                         WPF's binding engine listens to PropertyChanged at each level of a
+                         multi-segment path, and AudioFile (an ObservableObject) raises IsDirty
+                         changes from its PendingFields/PendingAlbumArt setters.
+
+                         NOT BasedOn WPF-UI's own DefaultDataGridRowStyle any more — a real,
+                         precisely-measured bug (per user feedback: "the text still moves
+                         slightly when selected"): that style's ControlTemplate reveals a 3px
+                         accent "pill" indicator (x:Name="ActiveRectangle") at the row's left
+                         edge only when IsSelected, and — even after overriding its Fill to
+                         Transparent (App.xaml's ListViewItemPillFillBrush override, which only
+                         hides its *color*) — the element's Visibility still toggles
+                         Collapsed/Visible with selection, and an Auto-width layout column
+                         reserving/releasing that 3px is what was actually moving the Filename
+                         text, confirmed by pixel-sampling identical rows before/after selection
+                         (row-relative text-start x went from 4 to 7). A Style.Trigger can't
+                         patch a Setter targeting a named part sealed inside an inherited
+                         ControlTemplate, so the only reliable fix is owning the template
+                         outright: this is WPF's own standard, stable DataGridRow template
+                         (unchanged structurally from the framework default — SnapsToDevicePixels
+                         plus the row's own Grid/SelectiveScrollingGrid/CellsPresenter/
+                         DetailsPresenter/RowHeader layout), with WPF-UI's own hover/selected
+                         background brush reused for visual consistency, but with no pill
+                         element of any kind to shift anything. -->
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="SnapsToDevicePixels" Value="True" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridRow">
+                                    <Border x:Name="DGR_Border"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="4"
+                                            SnapsToDevicePixels="True">
+                                        <primitives:SelectiveScrollingGrid>
+                                            <primitives:SelectiveScrollingGrid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </primitives:SelectiveScrollingGrid.ColumnDefinitions>
+                                            <primitives:SelectiveScrollingGrid.RowDefinitions>
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </primitives:SelectiveScrollingGrid.RowDefinitions>
+                                            <DataGridCellsPresenter Grid.Column="1"
+                                                                    ItemsPanel="{TemplateBinding ItemsPanel}"
+                                                                    primitives:SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" />
+                                            <DataGridDetailsPresenter Grid.Row="1" Grid.Column="1"
+                                                                      Visibility="{TemplateBinding DetailsVisibility}"
+                                                                      primitives:SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical" />
+                                            <DataGridRowHeader Grid.RowSpan="2"
+                                                               Content="{TemplateBinding Header}"
+                                                               Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                                        </primitives:SelectiveScrollingGrid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+                                        </Trigger>
+                                        <!-- Per user feedback ("make the background color of the
+                                             selected song the accent color — currently matches
+                                             well with the whiter background of alternating
+                                             rows"): the plain hover brush this used to reuse for
+                                             IsSelected too was too subtle to tell apart from an
+                                             alternating row's own background tint. The system
+                                             accent color gives selection real, unambiguous
+                                             contrast — this Trigger is declared AFTER IsMouseOver
+                                             above so a selected+hovered row still shows the
+                                             accent (later same-property Setters win), not the
+                                             plain hover tint. -->
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource SystemAccentColorPrimaryBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding AudioFile.IsDirty}" Value="True">
+                                <Setter Property="FontStyle" Value="Italic" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ui:DataGrid.RowStyle>
+                <ui:DataGrid.Columns>
+                    <!-- The one editable column, per plan section 5: F2 or double-click to
+                         edit (native DataGridCell behavior once the column itself isn't
+                         IsReadOnly — no extra code needed for that part), commit on
+                         Enter/focus-lost via CellEditEnding (code-behind, since inline grid
+                         editing has no clean command-binding hook), which calls
+                         MainWindowViewModel.RenameFileInline -> EditHistory.TryExecute(new
+                         RenameCommand(...)). The editing TextBox binds FileName OneWay only
+                         (FileListItemViewModel.FileName has no setter) — CellEditEnding reads
+                         the typed text directly instead of relying on binding write-back, so
+                         a failed rename simply leaves the underlying FileName untouched and
+                         the cell reverts to it automatically once edit mode exits. Named so
+                         F2's code-behind handler (OnBeginRenameExecuted) can target it
+                         directly via DataGridCellInfo regardless of column order. -->
+                    <DataGridTemplateColumn x:Name="FilenameColumn" Header="Filename" Width="2*" MinWidth="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding FileName}" Padding="4,0" VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding FileName, Mode=OneWay}"
+                                         Loaded="OnRenameTextBoxLoaded" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
+                    <!-- Title/Artist/Album/Track #/Year/Genre/Comment/Composer/Album Artist/
+                         Disc # are all directly editable in-place (double-click or F2, same as
+                         Filename) per user feedback — committing pushes a single-file
+                         FieldEditCommand through the shared EditHistory (see
+                         FileListItemViewModel.CommitField), which auto-saves immediately just
+                         like an edit made in the side panel.
+
+                         Every one of these (bar Filename) is also toggleable through the
+                         right-click column chooser (see OnFileGridPreviewMouseRightButtonUp) —
+                         per user feedback, the chooser originally only covered the 5 columns
+                         hidden by default below, with no way to hide e.g. Track #, so all of
+                         them get an x:Name + code-behind-managed Visibility now (DataGridColumn
+                         derives from plain DependencyObject, not FrameworkElement — it has no
+                         DataContext of its own and a {Binding} on DataGridColumn.Visibility
+                         silently fails to resolve, confirmed empirically — see
+                         MainWindow.xaml.cs's ApplyAllOptionalColumnVisibility /
+                         OnViewModelPropertyChanged). MinWidth on every resizable column keeps a
+                         user from squeezing a column to nothing while widening another —
+                         combined with the DataGrid's own horizontal scrollbar (enabled above),
+                         columns can no longer be dragged past the visible viewport with no way
+                         back to them. -->
+                    <DataGridTextColumn x:Name="TitleColumn" Header="Title" Binding="{Binding Title}" Width="2*" MinWidth="80" />
+                    <DataGridTextColumn x:Name="ArtistColumn" Header="Artist" Binding="{Binding Artist}" Width="2*" MinWidth="80" />
+                    <DataGridTextColumn x:Name="AlbumColumn" Header="Album" Binding="{Binding Album}" Width="2*" MinWidth="80" />
+                    <DataGridTextColumn x:Name="TrackNumberColumn" Header="Track #" Binding="{Binding TrackNumber, Converter={StaticResource NullableIntConverter}}" Width="Auto" MinWidth="60" />
+                    <DataGridTextColumn x:Name="YearColumn" Header="Year" Binding="{Binding Year, Converter={StaticResource NullableIntConverter}}" Width="Auto" MinWidth="60" />
+                    <DataGridTextColumn x:Name="DurationColumn" Header="Duration" Binding="{Binding Duration}" Width="Auto" MinWidth="70" IsReadOnly="True" />
+
+                    <!-- Hidden by default (the core columns above cover the common case). -->
+                    <DataGridTextColumn x:Name="AlbumArtistColumn" Header="Album Artist" Binding="{Binding AlbumArtist}" Width="2*" MinWidth="80" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="GenreColumn" Header="Genre" Binding="{Binding Genre}" Width="2*" MinWidth="80" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="ComposerColumn" Header="Composer" Binding="{Binding Composer}" Width="2*" MinWidth="80" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="CommentColumn" Header="Comment" Binding="{Binding Comment}" Width="2*" MinWidth="80" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="DiscNumberColumn" Header="Disc #" Binding="{Binding DiscNumber, Converter={StaticResource NullableIntConverter}}" Width="Auto" MinWidth="60" Visibility="Collapsed" />
+
+                    <!-- Technical-info columns, per user feedback ("let me select technical info
+                         onto the main viewport as headers") — read-only, sourced from
+                         FileListItemViewModel's ExtendedInfo pass-throughs (same data
+                         EditPanelView's "Technical Info" summary already shows for one file at
+                         a time; these make it visible across every row at once). Hidden by
+                         default, same column-chooser treatment as the metadata columns above. -->
+                    <DataGridTextColumn x:Name="CodecColumn" Header="Codec" Binding="{Binding Codec}" Width="Auto" MinWidth="70" MaxWidth="120" IsReadOnly="True" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="BitrateColumn" Header="Bitrate" Binding="{Binding Bitrate}" Width="Auto" MinWidth="70" IsReadOnly="True" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="SampleRateColumn" Header="Sample Rate" Binding="{Binding SampleRate}" Width="Auto" MinWidth="90" IsReadOnly="True" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="ChannelsColumn" Header="Channels" Binding="{Binding Channels}" Width="Auto" MinWidth="70" IsReadOnly="True" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="FileSizeColumn" Header="File Size" Binding="{Binding FileSize}" Width="Auto" MinWidth="70" IsReadOnly="True" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="TagFormatsColumn" Header="Tag Formats" Binding="{Binding TagFormats}" Width="Auto" MinWidth="90" IsReadOnly="True" Visibility="Collapsed" />
+                    <DataGridTextColumn x:Name="ModifiedColumn" Header="Modified" Binding="{Binding Modified}" Width="Auto" MinWidth="120" IsReadOnly="True" Visibility="Collapsed" />
+                </ui:DataGrid.Columns>
+            </ui:DataGrid>
+
+            <GridSplitter Grid.Column="1"
+                          Width="6"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="Transparent" />
+
+            <Border Grid.Column="2" BorderThickness="1,0,0,0"
+                    BorderBrush="{DynamicResource ControlElevationBorderBrush}">
+                <!-- Per user feedback ("let the album art scroll with the rest of the side
+                     panel"): AlbumArtControl and EditPanelView now share a single ScrollViewer
+                     (EditPanelView no longer owns its own — see that view's root element) so
+                     the art scrolls out of view along with the fields below it on a short
+                     panel/tall selection, rather than staying pinned above a separately
+                     scrolling EditPanelView. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- AlbumArtControl's DPs are bound explicitly against AlbumArt (an
+                             AlbumArtViewModel) rather than the control adopting it as its own
+                             DataContext — keeps the control "dumb"/reusable (see its own doc
+                             comment); ApplyImageBytesCommand is the shared sink for Ctrl+V paste
+                             and drag-drop, Replace/RemoveCommand back the two buttons. -->
+                        <controls:AlbumArtControl Margin="12,12,12,0"
+                                                   ImageBytes="{Binding AlbumArt.ImageBytes}"
+                                                   IsMixed="{Binding AlbumArt.IsMixed}"
+                                                   ReplaceCommand="{Binding AlbumArt.ReplaceCommand}"
+                                                   RemoveCommand="{Binding AlbumArt.RemoveCommand}"
+                                                   ExtractCommand="{Binding AlbumArt.ExtractCommand}"
+                                                   ArtDetails="{Binding AlbumArt.ArtDetails}"
+                                                   ApplyImageBytesCommand="{Binding AlbumArt.ApplyImageBytesCommand}"
+                                                   IsEnabled="{Binding AlbumArt.IsEnabled}" />
+                        <views:EditPanelView DataContext="{Binding EditPanel}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Row 3: status bar. Undo-stack description only shown when non-null (i.e. the
+             undo stack isn't empty) — plan section 5's "top-of-undo-stack description". -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="12,0,12,8">
+            <TextBlock Text="{Binding CurrentFolderPath, TargetNullValue='No folder open'}" />
+            <TextBlock Text=" | " Margin="6,0" />
+            <TextBlock Text="{Binding Files.Count, StringFormat='{}{0} files'}" />
+            <TextBlock Text=" | " Margin="6,0" />
+            <TextBlock Text="{Binding SelectedFiles.Count, StringFormat='{}{0} selected'}" />
+            <TextBlock Text=" | " Margin="6,0" />
+            <TextBlock Text="{Binding PendingChangesCount, StringFormat='{}{0} pending changes'}" />
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding UndoRedoDescription, Converter={StaticResource NullToCollapsedConverter}}">
+                <TextBlock Text=" | " Margin="6,0" />
+                <TextBlock Text="{Binding UndoRedoDescription, StringFormat='Last change: {0}'}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>
