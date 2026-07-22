@@ -18,21 +18,6 @@
                      BasedOn's self-reference to WPF-UI's own default Button style. -->
                 <ResourceDictionary Source="Styles/ButtonOverrides.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
-            <!-- Per user feedback ("don't move the selected song slightly right — misaligns
-                 where text starts for tags"): confirmed empirically (by pixel-sampling
-                 identical screenshots before/after selecting a row) that the actual cell text
-                 does NOT move — what happens is WPF-UI's row template reveals a ~3px accent
-                 "pill" indicator bar at the row's left edge only once a row is selected, and
-                 that bar suddenly appearing right next to the Filename text reads as a jump
-                 even though nothing underneath it actually shifted. Overriding this brush key
-                 (confirmed present in Wpf.Ui.dll) to Transparent removes the bar itself rather
-                 than trying to patch a Trigger buried in a template we don't own — our existing
-                 row-selection highlight (WPF-UI's own selected-row background tint) already
-                 conveys which row is selected without it. This one is a plain resource (a
-                 brush), not a Style with a BasedOn self-reference, so it doesn't have
-                 ButtonOverrides.xaml's problem and can stay declared directly here. -->
-            <SolidColorBrush x:Key="ListViewItemPillFillBrush" Color="Transparent" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

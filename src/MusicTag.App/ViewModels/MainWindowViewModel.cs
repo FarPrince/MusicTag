@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MusicTag.App.Services;
 using MusicTag.Core.History;
+using MusicTag.Core.Models;
 using MusicTag.Core.Services;
 using MusicTag.Core.Settings;
 
@@ -157,7 +158,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private bool isModifiedColumnVisible;
 
     [RelayCommand]
-    private void OpenFolder()
+    private async Task OpenFolder()
     {
         var folder = _filePickerService.PickFolder(CurrentFolderPath);
         if (folder is null)
@@ -170,11 +171,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!ConfirmDiscardIfDirty())
             return;
 
-        LoadFolder(folder);
+        await LoadFolderAsync(folder);
     }
 
     [RelayCommand(CanExecute = nameof(CanRefresh))]
-    private void Refresh()
+    private async Task Refresh()
     {
         if (CurrentFolderPath is null)
             return;
@@ -182,7 +183,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!ConfirmDiscardIfDirty())
             return;
 
-        LoadFolder(CurrentFolderPath);
+        await LoadFolderAsync(CurrentFolderPath);
     }
 
     private bool CanRefresh() => CurrentFolderPath is not null && Directory.Exists(CurrentFolderPath);
@@ -209,7 +210,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         var settings = _settingsService.Load();
         settings.Backdrop = settings.Backdrop == "Mica" ? "Acrylic" : "Mica";
-        _settingsService.Save(settings);
+
+        try
+        {
+            _settingsService.Save(settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Still apply the live visual toggle below even if persisting it failed — the
+            // user asked for an immediate effect, not for a failed disk write to also block
+            // the thing they can see working. It just won't survive a restart; MainWindow's
+            // own OnClosing save (also guarded) gets another chance to persist it later.
+            _dialogService.ShowError("Couldn't Save Settings", ex.Message);
+        }
+
         _themeService.ApplyBackdrop(settings.Backdrop);
     }
 
@@ -219,7 +233,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// skips <see cref="ConfirmDiscardIfDirty"/> since nothing is loaded yet at startup for
     /// there to be anything to discard; just delegates straight to the same LoadFolder every
     /// other folder-open path funnels through.</summary>
-    public void LoadInitialFolder(string folderPath) => LoadFolder(folderPath);
+    public Task LoadInitialFolder(string folderPath) => LoadFolderAsync(folderPath);
 
     /// <summary>Ctrl+Z. Per plan section 4, ordinary field/album-art commands are pure
     /// in-memory and TryUndo cannot actually fail for them — the fallible Try* API only
@@ -348,17 +362,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         AlbumArt.SetSelection(files);
     }
 
-    private void LoadFolder(string folderPath)
+    private async Task LoadFolderAsync(string folderPath)
     {
         CurrentFolderPath = folderPath;
-
-        // Per plan section 4: old commands on the stack hold direct references to AudioFile
-        // instances that this rescan is about to discard/replace, so the whole history must
-        // be cleared here — the caller (OpenFolder/Refresh) has already confirmed discarding
-        // any dirty state via ConfirmDiscardIfDirty before reaching this point. Note this is
-        // the one thing that DOES clear EditHistory — Save deliberately does not (see
-        // SaveAllAsync): undo-after-save is intentionally allowed and re-dirties the file.
-        _editHistory.Clear();
 
         // Old FileListItemViewModel instances hold a live subscription on their AudioFile
         // (for grid-column live-update) and on themselves (for the status bar's dirty
@@ -376,7 +382,41 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // separate explicit call needed.
         SelectedFiles.Clear();
 
-        foreach (var audioFile in _folderScanService.ScanFolder(folderPath))
+        // Per plan section 4: old commands on the stack hold direct references to AudioFile
+        // instances that this rescan is about to discard/replace, so the whole history must
+        // be cleared here — the caller (OpenFolder/Refresh) has already confirmed discarding
+        // any dirty state via ConfirmDiscardIfDirty before reaching this point. Note this is
+        // the one thing that DOES clear EditHistory — Save deliberately does not (see
+        // SaveAllAsync): undo-after-save is intentionally allowed and re-dirties the file.
+        //
+        // Deliberately AFTER Files.Clear() above, not before: EditHistory.Clear() fires
+        // Changed synchronously, which (via OnEditHistoryChanged) immediately kicks off an
+        // auto-save of whatever's currently dirty. If Files still held the old,
+        // about-to-be-discarded items at that point, switching folders right after the user
+        // confirmed "discard changes" would silently re-save the very edits they just chose
+        // to discard. With Files already empty, that auto-save sees zero dirty files and is
+        // a true no-op.
+        _editHistory.Clear();
+
+        IReadOnlyList<AudioFile> scannedFiles;
+        try
+        {
+            // FolderScanService.ScanFolder only tolerates a single bad FILE (its own
+            // try/catch is scoped per-file) — Directory.EnumerateFiles' lazy enumeration
+            // itself can still throw (a network share dropping mid-scan, a permission-denied
+            // folder), which isn't caught there. Task.Run also keeps the scan (every file is
+            // fully tag-parsed) off the UI thread, so opening a large folder doesn't freeze
+            // the window while it's in progress.
+            scannedFiles = await Task.Run(() => _folderScanService.ScanFolder(folderPath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _dialogService.ShowError("Couldn't Open Folder", $"Couldn't read \"{folderPath}\":\n{ex.Message}");
+            RecomputePendingChangesCount();
+            return;
+        }
+
+        foreach (var audioFile in scannedFiles)
         {
             var item = new FileListItemViewModel(audioFile, _editHistory);
             item.PropertyChanged += OnFileItemPropertyChanged;

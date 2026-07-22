@@ -124,8 +124,29 @@ public sealed partial class AlbumArtViewModel : ObservableObject
     {
         AlbumArtAction.Replaced => file.PendingAlbumArt.NewImageBytes,
         AlbumArtAction.Removed => null,
-        _ => _audioFileService.LoadEmbeddedAlbumArt(file.FullPath),
+        _ => TryLoadEmbeddedAlbumArt(file.FullPath),
     };
+
+    /// <summary>Reads embedded art straight from disk on every selection change, so — unlike
+    /// the initial folder scan — a file that's been deleted, locked, or moved externally since
+    /// then can throw here. FolderScanService.ScanFolder deliberately tolerates exactly this
+    /// per-file (a bad file shouldn't break the scan); this mirrors that guard so merely
+    /// selecting a row for a file that's since become unreadable doesn't crash the app —
+    /// there's no global unhandled-exception handler to catch it further up.</summary>
+    private byte[]? TryLoadEmbeddedAlbumArt(string fullPath)
+    {
+        try
+        {
+            return _audioFileService.LoadEmbeddedAlbumArt(fullPath);
+        }
+        catch (Exception)
+        {
+            // Matches FolderScanService.ScanFolder's own catch-all for the same reason: ATL
+            // can throw a variety of exception types for a locked/corrupt/vanished file, and
+            // none of them should turn "select this row" into a crash.
+            return null;
+        }
+    }
 
     private static bool BytesEqual(byte[]? a, byte[]? b)
     {
@@ -232,7 +253,7 @@ public sealed partial class AlbumArtViewModel : ObservableObject
             return string.Empty;
 
         var format = SniffImageFormat(bytes);
-        var sizeLabel = FormatFileSize(bytes.Length);
+        var sizeLabel = AudioInfoFormatting.FormatFileSize(bytes.Length);
 
         try
         {
@@ -268,13 +289,6 @@ public sealed partial class AlbumArtViewModel : ObservableObject
             return ("GIF", ".gif");
 
         return ("PNG", ".png");
-    }
-
-    private static string FormatFileSize(long bytes)
-    {
-        const double kb = 1024;
-        const double mb = kb * 1024;
-        return bytes >= mb ? $"{bytes / mb:0.0} MB" : $"{bytes / kb:0.0} KB";
     }
 
     /// <summary>Builds one <see cref="AlbumArtEditCommand"/> per currently selected file

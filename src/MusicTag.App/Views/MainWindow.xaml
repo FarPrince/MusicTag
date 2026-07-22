@@ -157,31 +157,16 @@
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
                          ScrollViewer.CanContentScroll="True">
                 <!--
-                    M8 DataGrid theming hardening (plan risk #3), concretely confirmed rather
-                    than assumed: WPF-UI 4.3.0's own DefaultDataGridRowStyle sets RowBackground
-                    to a hardcoded literal transparent brush and never sets
-                    AlternatingRowBackground at all, AND its row ControlTemplate's
-                    AlternationIndex==0/1 triggers unconditionally repaint the row's actual
-                    background element from the DataGrid's own RowBackground/
-                    AlternatingRowBackground properties — verified by reflecting the compiled
-                    style/template at runtime (see the M8 investigation), not by guessing. Two
-                    consequences fixed here:
-                      1. Without AlternationCount set (the WPF default, 0), every row reports
-                         AlternationIndex 0, so *only* RowBackground ever painted anything —
-                         AlternatingRowBackground above would otherwise never even be reached.
-                         AlternationCount="2" makes rows actually alternate.
-                      2. The M5-era dirty-row indicator below used to also set `Background` via
-                         a Style.Trigger, but that value is silently masked: the same
-                         AlternationIndex trigger re-asserts DGR_Border.Background from
-                         RowBackground/AlternatingRowBackground on every row regardless, since
-                         Style triggers here compete with the ControlTemplate's own internal
-                         triggers on the actual painted element, not the exposed
-                         DataGridRow.Background property. The dirty cue is therefore no longer
-                         attempted via Background at all — see the dedicated dirty-indicator
-                         column below instead, which paints its own element directly rather
-                         than fighting the row template. FontStyle=Italic below is unaffected
-                         by this (FontStyle isn't touched by any row-template trigger and
-                         inherits normally into cell content), so it's kept as-is.
+                    M8 DataGrid theming hardening (plan risk #3): without AlternationCount set
+                    (the WPF default, 0), every row reports AlternationIndex 0, so only
+                    RowBackground would ever paint anything — AlternatingRowBackground above
+                    would never be reached. AlternationCount="2" makes rows actually alternate.
+                    The row's own custom ControlTemplate below (see DataGrid.RowStyle) is what
+                    actually reads AlternationIndex to apply RowBackground/AlternatingRowBackground
+                    — see its ControlTemplate.Triggers. The dirty-row cue is a separate
+                    FontStyle=Italic Style.Trigger (also below) rather than a Background change,
+                    so it doesn't compete with the alternating/hover/selected background
+                    triggers on the same DGR_Border element.
                 -->
                 <!-- DataGrid.SelectedItems is a read-only IList proxy, not a bindable DP —
                      this attached behavior (M5, via Microsoft.Xaml.Behaviors.Wpf) mirrors it
@@ -253,6 +238,27 @@
                                         </primitives:SelectiveScrollingGrid>
                                     </Border>
                                     <ControlTemplate.Triggers>
+                                        <!-- Restores the alternating-row-color feature this
+                                             from-scratch template otherwise silently drops:
+                                             AlternationCount="2"/RowBackground/
+                                             AlternatingRowBackground (set on the DataGrid
+                                             itself, above) only do anything if something
+                                             actually reads AlternationIndex — WPF-UI's own
+                                             default template did, via triggers this
+                                             replacement template didn't reproduce, leaving
+                                             every row flat RowBackground regardless of index.
+                                             Declared BEFORE IsMouseOver/IsSelected below so
+                                             hover/selection still win over the plain
+                                             alternating tint when active (later same-property
+                                             Setters take precedence). -->
+                                        <Trigger Property="AlternationIndex" Value="0">
+                                            <Setter TargetName="DGR_Border" Property="Background"
+                                                    Value="{Binding RowBackground, RelativeSource={RelativeSource AncestorType=ui:DataGrid}}" />
+                                        </Trigger>
+                                        <Trigger Property="AlternationIndex" Value="1">
+                                            <Setter TargetName="DGR_Border" Property="Background"
+                                                    Value="{Binding AlternatingRowBackground, RelativeSource={RelativeSource AncestorType=ui:DataGrid}}" />
+                                        </Trigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
                                         </Trigger>

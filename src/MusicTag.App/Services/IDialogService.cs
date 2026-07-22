@@ -37,4 +37,12 @@ public interface IDialogService
     /// <summary>M8: shows the static keyboard-shortcuts reference (Help menu → "Keyboard
     /// Shortcuts"), non-modal — see DialogService for why.</summary>
     void ShowShortcutsReference();
+
+    /// <summary>Generic "an operation failed" report — <paramref name="title"/> names what was
+    /// being attempted (e.g. "Couldn't Open Folder", "Explorer Integration",
+    /// "Couldn't Save Settings") and <paramref name="message"/> is the underlying exception's
+    /// message. Shared by every unguarded-operation error path that isn't specific enough to
+    /// warrant its own dialog (contrast <see cref="ShowRenameError"/>, which is tied to the
+    /// specific TryExecute/TryUndo/TryRedo rename flow).</summary>
+    void ShowError(string title, string message);
 }

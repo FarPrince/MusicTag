@@ -70,10 +70,23 @@ public sealed class AudioFile : ObservableObject
 
     public bool IsDirty => PendingFields != OriginalFields || PendingAlbumArt.Action != AlbumArtAction.Unchanged;
 
-    public void CommitPendingTagEdits()
+    /// <summary>Marks <paramref name="savedFields"/>/<paramref name="savedAlbumArt"/> — the
+    /// exact snapshot that was just written to disk, captured by the caller before the save
+    /// started — as the new on-disk baseline. Deliberately takes explicit snapshots rather
+    /// than re-reading the live <see cref="PendingFields"/>/<see cref="PendingAlbumArt"/>
+    /// here: a save runs on a background thread (see AudioFileService.SaveAsync), and if the
+    /// user commits a newer edit to this same file while that save is still in flight, the
+    /// live properties would already reflect that newer edit by the time this runs. Comparing
+    /// against the snapshot instead means a still-unsaved newer edit correctly stays dirty
+    /// instead of being silently marked clean (and never actually saved).</summary>
+    public void CommitSavedTagEdits(TagFieldSet savedFields, AlbumArtEdit savedAlbumArt)
     {
-        OriginalFields = PendingFields;
-        PendingAlbumArt = AlbumArtEdit.Unchanged;
+        OriginalFields = savedFields;
+        if (PendingAlbumArt == savedAlbumArt)
+        {
+            PendingAlbumArt = AlbumArtEdit.Unchanged;
+        }
+
         OnPropertyChanged(nameof(IsDirty));
     }
 

@@ -63,11 +63,21 @@ public sealed class DialogService : IDialogService
         dialog.ShowDialog();
     }
 
+    public void ShowError(string title, string message)
+    {
+        var dialog = new ErrorDialog(title, message)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+
+        dialog.ShowDialog();
+    }
+
     /// <summary>Builds a fresh SettingsViewModel per call (not a DI singleton — see the class
     /// doc comment) so every open reloads whatever is currently on disk/in the registry.</summary>
     public void ShowSettings()
     {
-        var viewModel = new SettingsViewModel(_settingsService, _explorerIntegrationService, _filePickerService, _themeService);
+        var viewModel = new SettingsViewModel(_settingsService, _explorerIntegrationService, _filePickerService, _themeService, this);
         var window = new SettingsWindow(viewModel)
         {
             Owner = System.Windows.Application.Current?.MainWindow,

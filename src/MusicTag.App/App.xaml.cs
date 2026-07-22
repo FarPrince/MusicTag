@@ -23,7 +23,7 @@ public partial class App : System.Windows.Application
 {
     private ServiceProvider? _serviceProvider;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -33,6 +33,10 @@ public partial class App : System.Windows.Application
 
         // Resolve a startup folder (if any) before showing the window, so the grid is already
         // populated on first paint rather than opening empty and then flashing to populated.
+        // Awaited (rather than a blocking call) so the actual folder scan — which
+        // LoadInitialFolder now runs via Task.Run — doesn't tie up the UI thread while it's
+        // in progress; there's just no window shown yet for that to matter visibly. async
+        // void is the standard pattern for a WPF lifecycle override with no async version.
         var settingsService = _serviceProvider.GetRequiredService<ISettingsService>();
         var settings = settingsService.Load();
         var startupFolder = ResolveStartupFolder(e.Args, settings);
@@ -40,7 +44,7 @@ public partial class App : System.Windows.Application
         var mainWindowViewModel = _serviceProvider.GetRequiredService<MainWindowViewModel>();
         if (startupFolder is not null)
         {
-            mainWindowViewModel.LoadInitialFolder(startupFolder);
+            await mainWindowViewModel.LoadInitialFolder(startupFolder);
         }
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();

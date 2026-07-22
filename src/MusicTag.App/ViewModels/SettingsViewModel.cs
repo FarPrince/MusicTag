@@ -1,3 +1,4 @@
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MusicTag.App.Services;
@@ -19,17 +20,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IExplorerIntegrationService _explorerIntegrationService;
     private readonly IFilePickerService _filePickerService;
     private readonly IThemeService _themeService;
+    private readonly IDialogService _dialogService;
 
     public SettingsViewModel(
         ISettingsService settingsService,
         IExplorerIntegrationService explorerIntegrationService,
         IFilePickerService filePickerService,
-        IThemeService themeService)
+        IThemeService themeService,
+        IDialogService dialogService)
     {
         _settingsService = settingsService;
         _explorerIntegrationService = explorerIntegrationService;
         _filePickerService = filePickerService;
         _themeService = themeService;
+        _dialogService = dialogService;
 
         var settings = _settingsService.Load();
         defaultStartupFolder = settings.DefaultStartupFolder;
@@ -83,17 +87,30 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Registers or unregisters immediately (not deferred to Save) — this is a live
     /// registry action, not an in-memory pending edit, so its own success/failure is reflected
     /// right away via <see cref="IExplorerIntegrationService.IsRegistered"/> rather than waiting
-    /// for the user to also click Save.</summary>
+    /// for the user to also click Save. Register()/Unregister() can throw (restricted HKCU
+    /// permissions/Group Policy, or a null Environment.ProcessPath) and there's no global
+    /// unhandled-exception handler, so an unguarded failure here would crash the whole app over
+    /// what should be a recoverable, reportable error — caught and shown instead.
+    /// ExplorerIntegrationRegistered is refreshed from the live registry state either way, so a
+    /// partial failure (some keys written, some not) is reflected as accurately as
+    /// IsRegistered() can tell, rather than assumed to have fully succeeded or fully failed.</summary>
     [RelayCommand]
     private void ToggleExplorerIntegration()
     {
-        if (ExplorerIntegrationRegistered)
+        try
         {
-            _explorerIntegrationService.Unregister();
+            if (ExplorerIntegrationRegistered)
+            {
+                _explorerIntegrationService.Unregister();
+            }
+            else
+            {
+                _explorerIntegrationService.Register();
+            }
         }
-        else
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            _explorerIntegrationService.Register();
+            _dialogService.ShowError("Explorer Integration", ex.Message);
         }
 
         ExplorerIntegrationRegistered = _explorerIntegrationService.IsRegistered();
@@ -109,7 +126,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.DefaultStartupFolder = DefaultStartupFolder;
         settings.Theme = Theme;
         settings.ExplorerIntegrationRegistered = ExplorerIntegrationRegistered;
-        _settingsService.Save(settings);
+
+        try
+        {
+            _settingsService.Save(settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Matches MainWindow.xaml.cs's OnClosing guard around the identical call — a
+            // settings-save failure (locked file, full disk) must not crash the app over
+            // what's otherwise just a "couldn't persist this" report.
+            _dialogService.ShowError("Couldn't Save Settings", ex.Message);
+            return;
+        }
 
         RequestClose?.Invoke(this, EventArgs.Empty);
     }

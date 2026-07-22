@@ -1,0 +1,33 @@
+<ui:FluentWindow x:Class="MusicTag.App.Views.Dialogs.ErrorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        mc:Ignorable="d"
+        Height="220" Width="440"
+        MinHeight="200" MinWidth="380"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Acrylic"
+        WindowStartupLocation="CenterOwner">
+    <!-- Window.Title is set directly in code-behind (it also drives the taskbar/Alt-Tab
+         text) rather than bound here — this dialog's title varies per caller (folder-load,
+         Explorer-integration, settings-save failures), unlike RenameErrorDialog's fixed one.
+         The visible ui:TitleBar below reads it straight off the base Window.Title property
+         via the DataContext, same as any other bound value. -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" />
+
+        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap"
+                   Text="{Binding Message}" />
+
+        <ui:Button Grid.Row="2" Content="Close" HorizontalAlignment="Right"
+                   Margin="16" Click="OnCloseClick" />
+    </Grid>
+</ui:FluentWindow>

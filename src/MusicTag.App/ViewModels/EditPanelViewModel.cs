@@ -289,15 +289,9 @@ public sealed partial class EditPanelViewModel : ObservableObject
     private static string FormatExtendedInfo(AudioFile file)
     {
         var info = file.ExtendedInfo;
-        var channelsLabel = info.Channels switch
-        {
-            1 => "Mono",
-            2 => "Stereo",
-            0 => "Unknown",
-            _ => $"{info.Channels}ch",
-        };
+        var channelsLabel = AudioInfoFormatting.FormatChannels(info.Channels);
         var vbrLabel = info.IsVbr ? "VBR" : "CBR";
-        var fileSizeLabel = FormatFileSize(info.FileSizeBytes);
+        var fileSizeLabel = AudioInfoFormatting.FormatFileSize(info.FileSizeBytes);
         var tagFormats = string.IsNullOrEmpty(info.TagFormatsPresent) ? "None" : info.TagFormatsPresent;
 
         return $"Codec: {info.Codec}\n" +
@@ -307,12 +301,5 @@ public sealed partial class EditPanelViewModel : ObservableObject
                $"File Size: {fileSizeLabel}\n" +
                $"Tag Formats: {tagFormats}\n" +
                $"Modified: {info.FileModifiedUtc.ToLocalTime():yyyy-MM-dd HH:mm}";
-    }
-
-    private static string FormatFileSize(long bytes)
-    {
-        const double kb = 1024;
-        const double mb = kb * 1024;
-        return bytes >= mb ? $"{bytes / mb:0.0} MB" : $"{bytes / kb:0.0} KB";
     }
 }

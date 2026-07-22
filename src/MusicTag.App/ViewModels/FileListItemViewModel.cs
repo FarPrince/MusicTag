@@ -86,27 +86,14 @@ public sealed partial class FileListItemViewModel : ObservableObject, IDisposabl
 
     public string SampleRate => $"{AudioFile.ExtendedInfo.SampleRateHz:N0} Hz";
 
-    public string Channels => AudioFile.ExtendedInfo.Channels switch
-    {
-        1 => "Mono",
-        2 => "Stereo",
-        0 => "Unknown",
-        _ => $"{AudioFile.ExtendedInfo.Channels}ch",
-    };
+    public string Channels => AudioInfoFormatting.FormatChannels(AudioFile.ExtendedInfo.Channels);
 
-    public string FileSize => FormatFileSize(AudioFile.ExtendedInfo.FileSizeBytes);
+    public string FileSize => AudioInfoFormatting.FormatFileSize(AudioFile.ExtendedInfo.FileSizeBytes);
 
     public string TagFormats => string.IsNullOrEmpty(AudioFile.ExtendedInfo.TagFormatsPresent)
         ? "None" : AudioFile.ExtendedInfo.TagFormatsPresent;
 
     public string Modified => AudioFile.ExtendedInfo.FileModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-
-    private static string FormatFileSize(long bytes)
-    {
-        const double kb = 1024;
-        const double mb = kb * 1024;
-        return bytes >= mb ? $"{bytes / mb:0.0} MB" : $"{bytes / kb:0.0} KB";
-    }
 
     /// <summary>Passthrough used by MainWindowViewModel to recompute its pending-changes
     /// status-bar count without subscribing to every AudioFile directly. The grid's own

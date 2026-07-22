@@ -15,8 +15,11 @@ public interface IAudioFileService
     byte[]? LoadEmbeddedAlbumArt(string fullPath);
 
     /// <summary>Persists PendingFields + PendingAlbumArt only — never the filename (see
-    /// <see cref="Rename"/>). Commits the file's pending edits (<see cref="AudioFile.CommitPendingTagEdits"/>)
-    /// on success. Throws <see cref="TagSaveException"/> if ATL reports failure.</summary>
+    /// <see cref="Rename"/>). Commits the file's pending edits (<see cref="AudioFile.CommitSavedTagEdits"/>)
+    /// on success, against a snapshot taken before the (background-thread) save started, not
+    /// whatever PendingFields/PendingAlbumArt happen to hold by the time it finishes — so an
+    /// edit committed while this save is still in flight isn't lost. Throws
+    /// <see cref="TagSaveException"/> if ATL reports failure.</summary>
     Task SaveAsync(AudioFile file, CancellationToken ct = default);
 
     /// <summary>Saves every dirty file in <paramref name="files"/> (files that are already

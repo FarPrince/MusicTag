@@ -34,11 +34,29 @@ public sealed class AudioFileService : IAudioFileService
     }
 
     public Task SaveAsync(AudioFile file, CancellationToken ct = default)
-        => Task.Run(() =>
+    {
+        // Snapshot what's actually being saved on the calling thread, before the background
+        // work starts — see CommitSavedTagEdits' doc comment for why re-reading the live
+        // PendingFields/PendingAlbumArt after the write completes would race with a newer
+        // in-memory edit made while this save is still in flight.
+        var fieldsSnapshot = file.PendingFields;
+        var albumArtSnapshot = file.PendingAlbumArt;
+
+        // Captured here (the calling thread — the UI thread in the real app) so the
+        // dirty-flag commit can be marshaled back onto it after the disk write finishes on
+        // the background thread below. AudioFile derives from ObservableObject and its
+        // PropertyChanged is consumed by live WPF bindings (e.g. MainWindow.xaml's
+        // DataGridRow DataTrigger on IsDirty), which are thread-affine — raising it from a
+        // ThreadPool thread throws. SynchronizationContext is a plain BCL type (not WPF),
+        // keeping Core WPF-free; it's null in a headless test host, handled below.
+        var callingContext = SynchronizationContext.Current;
+
+        return Task.Run(() =>
         {
             ct.ThrowIfCancellationRequested();
-            SaveInternal(file);
+            SaveInternal(file, fieldsSnapshot, albumArtSnapshot, callingContext);
         }, ct);
+    }
 
     public async Task<BatchSaveResult> SaveManyAsync(
         IEnumerable<AudioFile> files,
@@ -114,7 +132,8 @@ public sealed class AudioFileService : IAudioFileService
         file.CommitRename(newFileName);
     }
 
-    private static void SaveInternal(AudioFile file)
+    private static void SaveInternal(
+        AudioFile file, TagFieldSet fieldsSnapshot, AlbumArtEdit albumArtSnapshot, SynchronizationContext? callingContext)
     {
         var fullPath = file.FullPath;
         var extension = Path.GetExtension(fullPath);
@@ -137,8 +156,8 @@ public sealed class AudioFileService : IAudioFileService
                 track = new Track(fullPath);
             }
 
-            ApplyPendingFields(track, file.PendingFields);
-            ApplyPendingAlbumArt(track, file.PendingAlbumArt);
+            ApplyPendingFields(track, fieldsSnapshot);
+            ApplyPendingAlbumArt(track, albumArtSnapshot);
 
             // ATL reports save failure via a bool return rather than an exception.
             if (!track.Save())
@@ -154,7 +173,19 @@ public sealed class AudioFileService : IAudioFileService
         // Only reached if track.Save() returned true (an exception above skips this,
         // leaving the file's PendingFields/PendingAlbumArt — and therefore IsDirty — as
         // they were, so a failed save doesn't silently look like it succeeded).
-        file.CommitPendingTagEdits();
+        //
+        // Marshaled via Send (not Post) so this still runs on the calling thread when one was
+        // captured, and so SaveAsync's returned Task only completes once the dirty-flag
+        // commit has actually happened — a caller awaiting SaveAsync and then immediately
+        // checking IsDirty must see the post-save state, not a stale in-flight one.
+        if (callingContext is not null)
+        {
+            callingContext.Send(_ => file.CommitSavedTagEdits(fieldsSnapshot, albumArtSnapshot), null);
+        }
+        else
+        {
+            file.CommitSavedTagEdits(fieldsSnapshot, albumArtSnapshot);
+        }
     }
 
     private static void ApplyPendingFields(Track track, TagFieldSet fields)
