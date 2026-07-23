@@ -53,6 +53,8 @@ public partial class MainWindow : FluentWindow
 
         RestoreWindowPlacement();
         RestoreGridColumnState();
+        CaptureCanonicalStarValues();
+        FileGrid.SizeChanged += OnFileGridSizeChanged;
         Closing += OnClosing;
 
         // DataGridColumn derives from plain DependencyObject, not FrameworkElement — it has no
@@ -250,9 +252,16 @@ public partial class MainWindow : FluentWindow
 
         foreach (var (name, column, getVisible, _) in GetGridColumnBindings())
         {
+            // For a Star column, _canonicalStarValues (kept in sync by OnFileGridSizeChanged)
+            // is trusted over the column's own live Width.Value — see that dictionary's own
+            // doc comment on why the live value alone can't be trusted after a resize.
+            var width = column.Width.UnitType == DataGridLengthUnitType.Star && _canonicalStarValues.TryGetValue(column, out var canonicalValue)
+                ? canonicalValue
+                : column.Width.Value;
+
             result[name] = new GridColumnState(
                 getVisible?.Invoke() ?? true,
-                column.Width.Value,
+                width,
                 column.DisplayIndex,
                 column.Width.UnitType.ToString());
         }
@@ -440,6 +449,22 @@ public partial class MainWindow : FluentWindow
     private DataGridColumn? _resizingStarColumn;
     private DataGridColumn? _resizingStarNeighbor;
 
+    /// <summary>The "real" Star coefficient for every currently-Star column, as last set by
+    /// either <see cref="RestoreGridColumnState"/> or a completed manual resize (see
+    /// <see cref="OnFileGridPreviewMouseLeftButtonUp"/>) — NOT necessarily whatever
+    /// <c>column.Width.Value</c> reports live at any given moment. Reported back: shrinking the
+    /// window (or the AlbumArt/EditPanel GridSplitter) and then returning it to its original
+    /// size does not restore the original per-column proportions — WPF's own Star-column
+    /// layout algorithm, once it has had to clamp a column to MinWidth at some intermediate
+    /// size during a resize, does not reliably recover the pre-clamp Value when space is freed
+    /// up again. Rather than chase the exact internal WPF mechanics of when/why that happens,
+    /// <see cref="OnFileGridSizeChanged"/> treats this dictionary as authoritative and
+    /// re-asserts it onto every Star column on every layout-affecting size change, so whatever
+    /// WPF's own algorithm silently drifted a column to gets corrected back within the same
+    /// layout pass — self-healing regardless of the precise trigger.</summary>
+    private readonly Dictionary<DataGridColumn, double> _canonicalStarValues = new();
+    private bool _isReassertingStarValues;
+
     /// <summary>WPF's default DataGrid column resize redistributes a Star column's width
     /// change across EVERY other Star column proportionally (documented WPF behavior — "if the
     /// column being resized doesn't have enough room, other star columns are resized in
@@ -522,9 +547,62 @@ public partial class MainWindow : FluentWindow
             starColumn.Width = new DataGridLength(originalValue, DataGridLengthUnitType.Star);
         }
 
+        // Only the dragged pair's canonical Value actually changed here — everyone else was
+        // just reset back to the same canonical value they already had (see
+        // _canonicalStarValues' own doc comment).
+        _canonicalStarValues[column] = column.Width.Value;
+        _canonicalStarValues[neighbor] = neighbor.Width.Value;
+
         _resizingStarColumn = null;
         _resizingStarNeighbor = null;
         _preResizeStarValues.Clear();
+    }
+
+    /// <summary>Snapshots every currently-Star column's Value into <see cref="_canonicalStarValues"/> —
+    /// called once at startup, right after <see cref="RestoreGridColumnState"/> has applied
+    /// whatever was saved (or left the XAML defaults in effect on a first-ever run), so the
+    /// dictionary always has an authoritative baseline for <see cref="OnFileGridSizeChanged"/>
+    /// to re-assert from.</summary>
+    private void CaptureCanonicalStarValues()
+    {
+        foreach (var (_, column, _, _) in GetGridColumnBindings())
+        {
+            if (column.Width.UnitType == DataGridLengthUnitType.Star)
+            {
+                _canonicalStarValues[column] = column.Width.Value;
+            }
+        }
+    }
+
+    /// <summary>Fires on every layout-affecting size change to the grid itself — a window
+    /// resize, a maximize/restore, or dragging the GridSplitter between the grid and the
+    /// AlbumArt/EditPanel side panel — and re-asserts <see cref="_canonicalStarValues"/> onto
+    /// every Star column, undoing whatever WPF's own Star-layout algorithm silently drifted
+    /// them to (see that dictionary's own doc comment for the reported symptom this fixes).
+    /// Guarded by <see cref="_isReassertingStarValues"/> since setting a column's Width here can
+    /// itself trigger another SizeChanged before this one returns — without the guard, a
+    /// genuine drift-correction would recurse into itself instead of just re-running once
+    /// against already-correct values (a harmless, single extra pass at worst).</summary>
+    private void OnFileGridSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_isReassertingStarValues)
+            return;
+
+        _isReassertingStarValues = true;
+        try
+        {
+            foreach (var (column, canonicalValue) in _canonicalStarValues)
+            {
+                if (column.Width.UnitType == DataGridLengthUnitType.Star && column.Width.Value != canonicalValue)
+                {
+                    column.Width = new DataGridLength(canonicalValue, DataGridLengthUnitType.Star);
+                }
+            }
+        }
+        finally
+        {
+            _isReassertingStarValues = false;
+        }
     }
 
     /// <summary>Auto-selects the existing filename text when the inline editor appears, the
