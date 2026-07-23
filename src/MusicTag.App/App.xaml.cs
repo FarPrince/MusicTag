@@ -23,9 +23,23 @@ public partial class App : System.Windows.Application
 {
     private ServiceProvider? _serviceProvider;
 
+    /// <summary>Headless CLI flags used only by the installer (see installer/MusicTag.iss) to
+    /// register/unregister the Explorer context-menu entries as a post-install/pre-uninstall
+    /// step, without ever showing a window. Deliberately reuses the exact same
+    /// IExplorerIntegrationService the Settings window's toggle already calls, rather than the
+    /// installer script duplicating the HKCU registry-write logic itself.</summary>
+    private const string RegisterExplorerArg = "--register-explorer";
+    private const string UnregisterExplorerArg = "--unregister-explorer";
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        if (e.Args.Contains(RegisterExplorerArg) || e.Args.Contains(UnregisterExplorerArg))
+        {
+            RunExplorerIntegrationCliMode(e.Args.Contains(RegisterExplorerArg));
+            return;
+        }
 
         var services = new ServiceCollection();
         ConfigureServices(services);
@@ -64,6 +78,40 @@ public partial class App : System.Windows.Application
     {
         _serviceProvider?.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>Registers or unregisters the Explorer context-menu entries and exits
+    /// immediately — no window, no theme/settings setup, nothing else in <see cref="OnStartup"/>
+    /// runs. Exit code is 0 on success, 1 on failure, so the installer's log can tell whether
+    /// the step actually worked without the installer needing to parse anything else.</summary>
+    private void RunExplorerIntegrationCliMode(bool register)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IRegistryKeyWrapper, RegistryKeyWrapper>();
+        services.AddSingleton<IExplorerIntegrationService, ExplorerIntegrationService>();
+        using var provider = services.BuildServiceProvider();
+        var explorerIntegrationService = provider.GetRequiredService<IExplorerIntegrationService>();
+
+        try
+        {
+            if (register)
+            {
+                explorerIntegrationService.Register();
+            }
+            else
+            {
+                explorerIntegrationService.Unregister();
+            }
+
+            Shutdown(0);
+        }
+        catch (Exception)
+        {
+            // Best-effort, matching SettingsViewModel.ToggleExplorerIntegration's own tolerance
+            // for a restricted-registry environment — the installer/uninstaller should still be
+            // able to complete even if this particular step couldn't.
+            Shutdown(1);
+        }
     }
 
     /// <summary>Per plan section 7: an Explorer-triggered launch (a real directory passed as a

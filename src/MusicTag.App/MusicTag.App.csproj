@@ -13,6 +13,11 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <!-- Without this, the shipped binary defaults to MusicTag.App.exe (the project file's own
+         name) — an internal three-project-solution naming detail (App/Core/Tests suffixes so
+         they don't collide) that shouldn't leak into what users actually see in the Start
+         Menu, taskbar, or Task Manager. -->
+    <AssemblyName>MusicTag</AssemblyName>
     <UseWPF>true</UseWPF>
     <!-- WinForms is referenced only as a fallback folder-picker path (FolderBrowserDialog)
          in case Microsoft.Win32.OpenFolderDialog misbehaves on a given Windows version —

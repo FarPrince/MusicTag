@@ -17,8 +17,9 @@ dotnet run --project src/MusicTag.App
 ```
 
 Windows-only (WPF). If `dotnet build` fails with a file-lock error on
-`MusicTag.App.exe`/`.dll`, a previous test instance of the app is still running —
-`tasklist //FI "IMAGENAME eq MusicTag.App.exe"` then `taskkill //PID <pid> //F`, or just
+`MusicTag.exe`/`.dll` (the compiled output of the `MusicTag.App` project — see its
+`AssemblyName` override), a previous test instance of the app is still running —
+`tasklist //FI "IMAGENAME eq MusicTag.exe"` then `taskkill //PID <pid> //F`, or just
 retry the build (locks from antivirus/indexer scans are often transient).
 
 ## Solution layout
@@ -86,6 +87,6 @@ retry the build (locks from antivirus/indexer scans are often transient).
   the code — several past "fixes" in this repo turned out to be partial until measured
   empirically (e.g. a row-selection indicator whose color was fixed but whose layout
   footprint still shifted text by a few pixels).
-- Before killing or launching a `MusicTag.App.exe` test instance, check
-  `tasklist //FI "IMAGENAME eq MusicTag.App.exe"` first — the user may already have one
+- Before killing or launching a `MusicTag.exe` test instance, check
+  `tasklist //FI "IMAGENAME eq MusicTag.exe"` first — the user may already have one
   open to look at the thing you just changed.
