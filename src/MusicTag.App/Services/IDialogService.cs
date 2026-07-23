@@ -45,4 +45,17 @@ public interface IDialogService
     /// warrant its own dialog (contrast <see cref="ShowRenameError"/>, which is tied to the
     /// specific TryExecute/TryUndo/TryRedo rename flow).</summary>
     void ShowError(string title, string message);
+
+    /// <summary>Generic "an operation finished, here's the result" report — same title+message
+    /// shape as <see cref="ShowError"/> (and the same underlying dialog), but for outcomes that
+    /// aren't failures, e.g. the lyrics-search button's "nothing configured yet" guard.</summary>
+    void ShowInfo(string title, string message);
+
+    /// <summary>Shows the "Search Lyrics" progress popup for the given (already validated
+    /// non-empty) search directories — live progress bar, per-file result list, and a
+    /// Cancel/Close button. Unlike every other dialog here, this one runs the actual search
+    /// itself (via <see cref="ViewModels.LyricsSearchDialogViewModel"/>) rather than just
+    /// displaying a result the caller already has, since the whole point is showing progress
+    /// as it happens.</summary>
+    void ShowLyricsSearchDialog(IReadOnlyList<string> directories);
 }

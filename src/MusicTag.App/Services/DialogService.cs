@@ -3,6 +3,7 @@ using MusicTag.App.Views;
 using MusicTag.App.Views.Dialogs;
 using MusicTag.Core.Integration;
 using MusicTag.Core.Models;
+using MusicTag.Core.Services;
 using MusicTag.Core.Settings;
 
 namespace MusicTag.App.Services;
@@ -19,17 +20,20 @@ public sealed class DialogService : IDialogService
     private readonly IExplorerIntegrationService _explorerIntegrationService;
     private readonly IFilePickerService _filePickerService;
     private readonly IThemeService _themeService;
+    private readonly ILyricsSearchService _lyricsSearchService;
 
     public DialogService(
         ISettingsService settingsService,
         IExplorerIntegrationService explorerIntegrationService,
         IFilePickerService filePickerService,
-        IThemeService themeService)
+        IThemeService themeService,
+        ILyricsSearchService lyricsSearchService)
     {
         _settingsService = settingsService;
         _explorerIntegrationService = explorerIntegrationService;
         _filePickerService = filePickerService;
         _themeService = themeService;
+        _lyricsSearchService = lyricsSearchService;
     }
 
     public void ShowSaveErrors(IReadOnlyList<(AudioFile File, Exception Error)> failures)
@@ -73,6 +77,16 @@ public sealed class DialogService : IDialogService
         dialog.ShowDialog();
     }
 
+    public void ShowInfo(string title, string message)
+    {
+        var dialog = new ErrorDialog(title, message)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+
+        dialog.ShowDialog();
+    }
+
     /// <summary>Builds a fresh SettingsViewModel per call (not a DI singleton — see the class
     /// doc comment) so every open reloads whatever is currently on disk/in the registry.</summary>
     public void ShowSettings()
@@ -100,5 +114,16 @@ public sealed class DialogService : IDialogService
         };
 
         window.Show();
+    }
+
+    public void ShowLyricsSearchDialog(IReadOnlyList<string> directories)
+    {
+        var viewModel = new LyricsSearchDialogViewModel(_lyricsSearchService, directories);
+        var dialog = new LyricsSearchDialog(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+
+        dialog.ShowDialog();
     }
 }

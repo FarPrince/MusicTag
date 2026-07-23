@@ -107,22 +107,28 @@
             <ui:Button Content="Save" Icon="{ui:SymbolIcon Save24}"
                        Command="{Binding SaveAllCommand}" Margin="8,0,0,0"
                        ToolTip="Edits already auto-save — this retries any save that previously failed" />
-            <ui:Button Content="Undo" Icon="{ui:SymbolIcon ArrowUndo24}"
+            <ui:Button Icon="{ui:SymbolIcon ArrowUndo24}" ToolTip="Undo"
                        Command="{Binding UndoCommand}" Margin="8,0,0,0" />
-            <ui:Button Content="Redo" Icon="{ui:SymbolIcon ArrowRedo24}"
+            <ui:Button Icon="{ui:SymbolIcon ArrowRedo24}" ToolTip="Redo"
                        Command="{Binding RedoCommand}" Margin="8,0,0,0" />
             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}"
                        Command="{Binding RefreshCommand}" Margin="8,0,0,0" />
-            <!-- Per user feedback ("Theme button should switch between Acrylic and Mica") —
-                 this used to cycle System -> Light -> Dark -> System; that full choice is still
-                 available via the Settings window's theme picker, so repurposing this toolbar
-                 button for a quick backdrop-material toggle loses no functionality — see
-                 MainWindowViewModel.ToggleBackdrop. -->
-            <ui:Button Content="Backdrop" Icon="{ui:SymbolIcon Blur24}"
-                       Command="{Binding ToggleBackdropCommand}" Margin="20,0,0,0"
-                       ToolTip="Cycle Acrylic / Mica window backdrop" />
+            <!-- Per user request: replaces ";" separators with ", " across every loaded file
+                 in the folder, restricted to whichever fields Settings enables (see
+                 SettingsWindow.xaml's "Separator Normalization" section) — one undo step for
+                 the whole folder, same as any other batch edit (MainWindowViewModel.NormalizeSeparators). -->
+            <ui:Button Content="Normalize Separators" Icon="{ui:SymbolIcon ArrowSwap24}"
+                       Command="{Binding NormalizeSeparatorsCommand}" Margin="8,0,0,0"
+                       ToolTip="Replace ';' with ', ' in the fields enabled under Settings" />
+            <!-- Per user request: scans the directories configured under Settings ->
+                 Lyrics (LRCLib) (recursively, independent of the folder open in the grid)
+                 for songs missing a sidecar .lrc, downloading synced lyrics from LRCLib —
+                 see MainWindowViewModel.SearchLyrics. -->
+            <ui:Button Content="Search Lyrics" Icon="{ui:SymbolIcon Subtitles24}"
+                       Command="{Binding SearchLyricsCommand}" Margin="8,0,0,0"
+                       ToolTip="Download synced lyrics for songs missing an .lrc file" />
             <ui:Button Content="Settings" Icon="{ui:SymbolIcon Settings24}"
-                       Command="{Binding OpenSettingsCommand}" Margin="8,0,0,0" />
+                       Command="{Binding OpenSettingsCommand}" Margin="20,0,0,0" />
             <ui:Button Content="Keyboard Shortcuts" Icon="{ui:SymbolIcon Keyboard24}"
                        Command="{Binding ShowShortcutsCommand}" Margin="8,0,0,0" />
         </StackPanel>

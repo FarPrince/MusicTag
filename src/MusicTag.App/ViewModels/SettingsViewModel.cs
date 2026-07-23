@@ -1,8 +1,10 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MusicTag.App.Services;
 using MusicTag.Core.Integration;
+using MusicTag.Core.Models;
 using MusicTag.Core.Settings;
 
 namespace MusicTag.App.ViewModels;
@@ -38,6 +40,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         var settings = _settingsService.Load();
         defaultStartupFolder = settings.DefaultStartupFolder;
         theme = settings.Theme;
+        backdrop = settings.Backdrop;
+
+        titleSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("Title");
+        albumSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("Album");
+        artistSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("Artist");
+        albumArtistSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("AlbumArtist");
+        commentSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("Comment");
+        composerSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("Composer");
+        genreSeparatorEnabled = settings.SeparatorNormalizationFields.Contains("Genre");
+
+        LyricsSearchDirectories = new ObservableCollection<string>(settings.LyricsSearchDirectories);
 
         // The live registry state is authoritative, not the persisted
         // AppSettings.ExplorerIntegrationRegistered flag — a registry key added/removed
@@ -60,6 +73,31 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool explorerIntegrationRegistered;
 
+    /// <summary>Backs the "Separator Normalization" section's per-field checkboxes — one bool
+    /// property per <see cref="SeparatorNormalization.FieldNames"/> entry, same one-property-per-
+    /// toggle convention MainWindowViewModel already uses for its grid column-chooser. Title/Album/
+    /// Comment default unchecked (see AppSettings.SeparatorNormalizationFields doc comment).</summary>
+    [ObservableProperty]
+    private bool titleSeparatorEnabled;
+
+    [ObservableProperty]
+    private bool albumSeparatorEnabled;
+
+    [ObservableProperty]
+    private bool artistSeparatorEnabled;
+
+    [ObservableProperty]
+    private bool albumArtistSeparatorEnabled;
+
+    [ObservableProperty]
+    private bool commentSeparatorEnabled;
+
+    [ObservableProperty]
+    private bool composerSeparatorEnabled;
+
+    [ObservableProperty]
+    private bool genreSeparatorEnabled;
+
     /// <summary>Backs the Settings window's theme ComboBox. "System" | "Light" | "Dark" per
     /// plan section 6 — order matches the AppSettings.Theme doc comment.</summary>
     public IReadOnlyList<string> ThemeOptions { get; } = ["System", "Light", "Dark"];
@@ -73,6 +111,50 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// (which this partial hooks) is only invoked by an actual assignment through the property,
     /// and the constructor above sets the backing field directly.</summary>
     partial void OnThemeChanged(string value) => _themeService.ApplyTheme(value);
+
+    [ObservableProperty]
+    private string backdrop;
+
+    /// <summary>Backs the Settings window's backdrop ComboBox — per user request, moved here from
+    /// the toolbar's old quick-toggle button (MainWindowViewModel.ToggleBackdrop). "Acrylic" |
+    /// "Mica", applied live via the same "act immediately, persist on Save" pattern as
+    /// <see cref="OnThemeChanged"/> above.</summary>
+    public IReadOnlyList<string> BackdropOptions { get; } = ["Acrylic", "Mica"];
+
+    partial void OnBackdropChanged(string value) => _themeService.ApplyBackdrop(value);
+
+    /// <summary>Backs the "Lyrics (LRCLib)" section's directory list — populated from
+    /// <see cref="Core.Settings.AppSettings.LyricsSearchDirectories"/> in the constructor,
+    /// mutated by <see cref="AddLyricsSearchDirectory"/>/<see cref="RemoveLyricsSearchDirectory"/>,
+    /// and only persisted back to disk on <see cref="Save"/> — same "live in-memory list, commit
+    /// on Save" treatment as every other field in this window.</summary>
+    public ObservableCollection<string> LyricsSearchDirectories { get; }
+
+    [ObservableProperty]
+    private string? selectedLyricsSearchDirectory;
+
+    [RelayCommand]
+    private void AddLyricsSearchDirectory()
+    {
+        var folder = _filePickerService.PickFolder(null);
+        if (folder is not null && !LyricsSearchDirectories.Contains(folder))
+        {
+            LyricsSearchDirectories.Add(folder);
+        }
+    }
+
+    private bool CanRemoveLyricsSearchDirectory() => SelectedLyricsSearchDirectory is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRemoveLyricsSearchDirectory))]
+    private void RemoveLyricsSearchDirectory()
+    {
+        if (SelectedLyricsSearchDirectory is not null)
+        {
+            LyricsSearchDirectories.Remove(SelectedLyricsSearchDirectory);
+        }
+    }
+
+    partial void OnSelectedLyricsSearchDirectoryChanged(string? value) => RemoveLyricsSearchDirectoryCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
     private void BrowseDefaultFolder()
@@ -125,7 +207,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         var settings = _settingsService.Load();
         settings.DefaultStartupFolder = DefaultStartupFolder;
         settings.Theme = Theme;
+        settings.Backdrop = Backdrop;
         settings.ExplorerIntegrationRegistered = ExplorerIntegrationRegistered;
+
+        var separatorFields = new HashSet<string>();
+        if (TitleSeparatorEnabled) separatorFields.Add("Title");
+        if (AlbumSeparatorEnabled) separatorFields.Add("Album");
+        if (ArtistSeparatorEnabled) separatorFields.Add("Artist");
+        if (AlbumArtistSeparatorEnabled) separatorFields.Add("AlbumArtist");
+        if (CommentSeparatorEnabled) separatorFields.Add("Comment");
+        if (ComposerSeparatorEnabled) separatorFields.Add("Composer");
+        if (GenreSeparatorEnabled) separatorFields.Add("Genre");
+        settings.SeparatorNormalizationFields = separatorFields;
+        settings.LyricsSearchDirectories = [.. LyricsSearchDirectories];
 
         try
         {

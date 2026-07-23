@@ -30,7 +30,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IAudioFileService _audioFileService;
     private readonly IDialogService _dialogService;
     private readonly ISettingsService _settingsService;
-    private readonly IThemeService _themeService;
     private readonly EditHistory _editHistory;
     private readonly SemaphoreSlim _autoSaveGate = new(1, 1);
 
@@ -40,7 +39,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IAudioFileService audioFileService,
         IDialogService dialogService,
         ISettingsService settingsService,
-        IThemeService themeService,
         EditHistory editHistory,
         EditPanelViewModel editPanel,
         AlbumArtViewModel albumArt)
@@ -50,13 +48,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _audioFileService = audioFileService;
         _dialogService = dialogService;
         _settingsService = settingsService;
-        _themeService = themeService;
         _editHistory = editHistory;
         EditPanel = editPanel;
         AlbumArt = albumArt;
 
         _editHistory.Changed += OnEditHistoryChanged;
         SelectedFiles.CollectionChanged += OnSelectedFilesChanged;
+        Files.CollectionChanged += (_, _) => NormalizeSeparatorsCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Single instance shared for the life of the app (registered as a DI
@@ -198,33 +196,67 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ShowShortcuts() => _dialogService.ShowShortcutsReference();
 
-    /// <summary>Per user feedback ("Theme button should switch between Acrylic and Mica") —
-    /// the toolbar's quick toggle button used to cycle System → Light → Dark → System (that
-    /// full Light/Dark/System choice is still available via <see cref="SettingsViewModel"/>'s
-    /// theme ComboBox); this button now cycles the window's backdrop material instead. Same
-    /// "apply and persist immediately" reasoning as before applies unchanged: there's no
-    /// separate Save step for a toolbar button, so leaving the choice unpersisted would mean it
-    /// silently reverts the next time the app starts.</summary>
-    [RelayCommand]
-    private void ToggleBackdrop()
+    /// <summary>Toolbar "Normalize Separators" button, per user request: replaces ";"
+    /// separators with ", " across every currently loaded file in the folder (per the user's
+    /// own scope choice — not just the grid selection, unlike EditPanelViewModel's batch field
+    /// edits), restricted to whichever fields <see cref="AppSettings.SeparatorNormalizationFields"/>
+    /// currently enables. Builds one <see cref="FieldEditCommand"/> per file the transform would
+    /// actually change (skipping files with no ';' to normalize in an enabled field) and wraps
+    /// them in a single <see cref="CompositeEditCommand"/> — one undo step for the whole folder,
+    /// same shape as every other batch edit in this app — which in turn triggers the usual
+    /// auto-save via <see cref="OnEditHistoryChanged"/>.</summary>
+    [RelayCommand(CanExecute = nameof(CanNormalizeSeparators))]
+    private void NormalizeSeparators()
     {
-        var settings = _settingsService.Load();
-        settings.Backdrop = settings.Backdrop == "Mica" ? "Acrylic" : "Mica";
+        var enabledFields = _settingsService.Load().SeparatorNormalizationFields;
 
-        try
+        var leaves = new List<IEditCommand>();
+        foreach (var item in Files)
         {
-            _settingsService.Save(settings);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Still apply the live visual toggle below even if persisting it failed — the
-            // user asked for an immediate effect, not for a failed disk write to also block
-            // the thing they can see working. It just won't survive a restart; MainWindow's
-            // own OnClosing save (also guarded) gets another chance to persist it later.
-            _dialogService.ShowError("Couldn't Save Settings", ex.Message);
+            var file = item.AudioFile;
+            var before = file.PendingFields;
+            var after = SeparatorNormalization.Apply(before, enabledFields);
+            if (after == before)
+                continue;
+
+            leaves.Add(new FieldEditCommand(file, before, after, $"Normalize separators on {file.FileName}"));
         }
 
-        _themeService.ApplyBackdrop(settings.Backdrop);
+        if (leaves.Count == 0)
+            return;
+
+        var description = leaves.Count == 1
+            ? leaves[0].Description
+            : $"Normalize separators on {leaves.Count} files";
+
+        _editHistory.Execute(new CompositeEditCommand(description, leaves));
+    }
+
+    private bool CanNormalizeSeparators() => Files.Count > 0;
+
+    /// <summary>Toolbar "Search Lyrics" button, per user request: scans every directory
+    /// configured under Settings → Lyrics (LRCLib) — recursively, independent of whatever
+    /// folder happens to be open in the grid — for supported audio files with no sidecar .lrc
+    /// yet, looks each one up on LRCLib (tags first, falling back to parsing "Artist - Title"
+    /// out of the filename when tags are missing), and writes a synced .lrc next to every song
+    /// that gets a match. See <see cref="LyricsSearchService"/> for the full per-file logic;
+    /// the actual search run and its live progress/results popup are owned by
+    /// <see cref="Services.IDialogService.ShowLyricsSearchDialog"/> /
+    /// <see cref="LyricsSearchDialogViewModel"/> — this method is just validating there's
+    /// something configured to search before opening it.</summary>
+    [RelayCommand]
+    private void SearchLyrics()
+    {
+        var directories = _settingsService.Load().LyricsSearchDirectories;
+        if (directories.Count == 0)
+        {
+            _dialogService.ShowInfo(
+                "Search Lyrics",
+                "No directories configured yet — add at least one under Settings → Lyrics (LRCLib).");
+            return;
+        }
+
+        _dialogService.ShowLyricsSearchDialog(directories);
     }
 
     /// <summary>M7: called once from App.OnStartup when a startup folder was resolved from a

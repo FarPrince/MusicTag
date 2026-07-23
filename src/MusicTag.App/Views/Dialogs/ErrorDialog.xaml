@@ -5,16 +5,18 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
-        Height="220" Width="440"
-        MinHeight="200" MinWidth="380"
+        Height="260" Width="440"
+        MinHeight="220" MinWidth="380"
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Acrylic"
         WindowStartupLocation="CenterOwner">
     <!-- Window.Title is set directly in code-behind (it also drives the taskbar/Alt-Tab
-         text) rather than bound here — this dialog's title varies per caller (folder-load,
-         Explorer-integration, settings-save failures), unlike RenameErrorDialog's fixed one.
-         The visible ui:TitleBar below reads it straight off the base Window.Title property
-         via the DataContext, same as any other bound value. -->
+         text) rather than bound to ui:TitleBar's own Title — ui:TitleBar.Title renders in a
+         small, indented window-chrome caption style, which looked mismatched next to the body
+         text for a real per-caller heading like "Search Lyrics"/"Couldn't Open Folder". Using
+         TitleBar.Header (arbitrary content, unlike the plain-string Title) instead puts a
+         normally-styled, body-margin-aligned heading in that same top strip — same line as the
+         minimize/maximize/close buttons, just no longer visually a tiny system caption. -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -22,10 +24,15 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" />
+        <ui:TitleBar Grid.Row="0">
+            <ui:TitleBar.Header>
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Margin="16,0,0,0" VerticalAlignment="Center" />
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
 
-        <TextBlock Grid.Row="1" Margin="16" TextWrapping="Wrap"
-                   Text="{Binding Message}" />
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <TextBlock Margin="16" TextWrapping="Wrap" Text="{Binding Message}" />
+        </ScrollViewer>
 
         <ui:Button Grid.Row="2" Content="Close" HorizontalAlignment="Right"
                    Margin="16" Click="OnCloseClick" />

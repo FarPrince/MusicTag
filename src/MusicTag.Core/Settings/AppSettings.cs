@@ -34,6 +34,19 @@ public sealed class AppSettings
     /// (backed by the real registry) is authoritative; the App-side SettingsViewModel re-derives
     /// the live value from that on load instead of trusting this field blindly.</summary>
     public bool ExplorerIntegrationRegistered { get; set; }
+
+    /// <summary>Which of <see cref="Models.SeparatorNormalization.FieldNames"/> the toolbar's
+    /// "Normalize Separators" button applies to, per user request ("Create a setting that
+    /// allows me select which fields should be changed"). Defaults to the classic multi-value
+    /// fields — Title/Album/Comment start unchecked since they're typically single-value, but
+    /// SettingsWindow lets the user enable any of the 7.</summary>
+    public HashSet<string> SeparatorNormalizationFields { get; set; } = ["Artist", "AlbumArtist", "Composer", "Genre"];
+
+    /// <summary>Directories the toolbar's "Search Lyrics" button
+    /// (<see cref="MusicTag.Core.Services.ILyricsSearchService"/>) scans recursively for songs missing a
+    /// sidecar .lrc file, per user request. Empty by default — the user must configure at least
+    /// one directory via Settings before the button has anything to search.</summary>
+    public List<string> LyricsSearchDirectories { get; set; } = [];
 }
 
 /// <summary>

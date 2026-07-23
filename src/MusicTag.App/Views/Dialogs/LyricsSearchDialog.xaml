@@ -1,0 +1,67 @@
+<ui:FluentWindow x:Class="MusicTag.App.Views.Dialogs.LyricsSearchDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:vm="clr-namespace:MusicTag.App.ViewModels"
+        xmlns:conv="clr-namespace:MusicTag.App.Converters"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:LyricsSearchDialogViewModel}"
+        Height="480" Width="520"
+        MinHeight="320" MinWidth="400"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Acrylic"
+        WindowStartupLocation="CenterOwner"
+        Loaded="OnLoaded"
+        Closing="OnClosing">
+    <Window.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToCollapsedConverter" />
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0">
+            <ui:TitleBar.Header>
+                <TextBlock Text="Search Lyrics" FontWeight="SemiBold" Margin="16,0,0,0" VerticalAlignment="Center" />
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
+
+        <StackPanel Grid.Row="1" Margin="16,8,16,0">
+            <ProgressBar Minimum="0" Maximum="{Binding Total}" Value="{Binding Current}"
+                         IsIndeterminate="{Binding IsIndeterminate}" Height="4" />
+            <TextBlock Text="{Binding StatusText}" Margin="0,8,0,0" />
+        </StackPanel>
+
+        <!-- Newest-first per-file result list — see LyricsSearchDialogViewModel.Results. -->
+        <ListBox Grid.Row="2" Margin="16,8" ItemsSource="{Binding Results}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding Outcome}" Opacity="0.7" Margin="12,0,0,0" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Grid.Row="3" Margin="16,0,16,8" TextWrapping="Wrap"
+                   Text="{Binding SummaryText}"
+                   Visibility="{Binding SummaryText, Converter={StaticResource NullToCollapsedConverter}}" />
+
+        <ui:Button Grid.Row="4" Content="{Binding PrimaryButtonText}" HorizontalAlignment="Right"
+                   Margin="16" Click="OnPrimaryButtonClick" />
+    </Grid>
+</ui:FluentWindow>

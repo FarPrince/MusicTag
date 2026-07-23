@@ -144,6 +144,8 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IRegistryKeyWrapper, RegistryKeyWrapper>();
         services.AddSingleton<IExplorerIntegrationService, ExplorerIntegrationService>();
+        services.AddSingleton<ILrcLibClient, LrcLibClient>();
+        services.AddSingleton<ILyricsSearchService, LyricsSearchService>();
 
         // Session-only undo/redo history — a single instance shared for the app's lifetime
         // (registered as a singleton, not per-window/per-selection) since it must survive

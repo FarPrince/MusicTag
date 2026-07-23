@@ -7,8 +7,8 @@
         xmlns:vm="clr-namespace:MusicTag.App.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
-        Title="Settings" Height="420" Width="480"
-        MinHeight="380" MinWidth="420"
+        Title="Settings" Height="560" Width="480"
+        MinHeight="480" MinWidth="420"
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Acrylic"
         WindowStartupLocation="CenterOwner">
@@ -21,7 +21,8 @@
 
         <ui:TitleBar Grid.Row="0" Title="Settings" />
 
-        <StackPanel Grid.Row="1" Margin="16">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
             <TextBlock Text="Default startup folder" FontWeight="SemiBold" Margin="0,0,0,4" />
             <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
                        Text="Opened automatically on launch when MusicTag isn't started from Explorer's right-click menu. Leave blank to start with the Open Folder prompt." />
@@ -36,6 +37,12 @@
             <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
                        Text="Applies instantly. &quot;System&quot; follows the Windows light/dark setting, including while the app stays open." />
             <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}"
+                      Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+            <TextBlock Text="Window backdrop" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                       Text="Applies instantly. Acrylic is a see-through blur; Mica is a subtler, near-opaque material." />
+            <ComboBox ItemsSource="{Binding BackdropOptions}" SelectedItem="{Binding Backdrop}"
                       Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
 
             <TextBlock Text="Explorer integration" FontWeight="SemiBold" Margin="0,0,0,4" />
@@ -53,7 +60,38 @@
                     </Style>
                 </ui:Button.Style>
             </ui:Button>
+
+            <!-- Per user request: which fields the toolbar's "Normalize Separators" button
+                 (MainWindowViewModel.NormalizeSeparators) rewrites ";"-separated values in.
+                 Title/Album/Comment start unchecked (see AppSettings.SeparatorNormalizationFields). -->
+            <TextBlock Text="Separator Normalization" FontWeight="SemiBold" Margin="0,16,0,4" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"
+                       Text="Fields the toolbar's &quot;Normalize Separators&quot; button rewrites — turns ';'-separated values (e.g. &quot;Rock;Pop&quot;) into ', '-separated ones." />
+            <WrapPanel>
+                <CheckBox Content="Title" IsChecked="{Binding TitleSeparatorEnabled}" Margin="0,0,16,8" />
+                <CheckBox Content="Album" IsChecked="{Binding AlbumSeparatorEnabled}" Margin="0,0,16,8" />
+                <CheckBox Content="Artist" IsChecked="{Binding ArtistSeparatorEnabled}" Margin="0,0,16,8" />
+                <CheckBox Content="Album Artist" IsChecked="{Binding AlbumArtistSeparatorEnabled}" Margin="0,0,16,8" />
+                <CheckBox Content="Comment" IsChecked="{Binding CommentSeparatorEnabled}" Margin="0,0,16,8" />
+                <CheckBox Content="Composer" IsChecked="{Binding ComposerSeparatorEnabled}" Margin="0,0,16,8" />
+                <CheckBox Content="Genre" IsChecked="{Binding GenreSeparatorEnabled}" Margin="0,0,16,8" />
+            </WrapPanel>
+
+            <!-- Per user request: directories the toolbar's "Search Lyrics" button
+                 (MainWindowViewModel.SearchLyrics / LyricsSearchService) scans recursively for
+                 songs missing a sidecar .lrc file. -->
+            <TextBlock Text="Lyrics (LRCLib)" FontWeight="SemiBold" Margin="0,16,0,4" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"
+                       Text="Directories the toolbar's &quot;Search Lyrics&quot; button scans (including subfolders) for songs with no .lrc file yet, downloading synced lyrics from LRCLib where a match is found." />
+            <ListBox ItemsSource="{Binding LyricsSearchDirectories}"
+                     SelectedItem="{Binding SelectedLyricsSearchDirectory}"
+                     Height="90" Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                <ui:Button Content="Add Directory…" Command="{Binding AddLyricsSearchDirectoryCommand}" />
+                <ui:Button Content="Remove Selected" Command="{Binding RemoveLyricsSearchDirectoryCommand}" Margin="8,0,0,0" />
+            </StackPanel>
         </StackPanel>
+        </ScrollViewer>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
             <ui:Button Content="Cancel" Margin="0,0,8,0" Command="{Binding CancelCommand}" />
