@@ -96,8 +96,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// covered the 5 columns hidden by default (Album Artist/Genre/Composer/Comment/Disc #) —
     /// there was no way to hide one of the columns shown by default (e.g. Track #). Every data
     /// column except Filename (the row's identity — hiding it would leave no way to tell rows
-    /// apart) is now toggleable through the same menu. Not persisted to settings — not asked
-    /// for, and each session starting from the same default view is a reasonable default.</summary>
+    /// apart) is now toggleable through the same menu. The values set here are just XAML-declared
+    /// defaults for a brand-new settings file — MainWindow.xaml.cs's RestoreGridColumnState
+    /// overwrites them (before first paint) from AppSettings.GridColumns when a prior session
+    /// saved one, per user request that column selection persist across sessions.</summary>
     [ObservableProperty]
     private bool isTitleColumnVisible = true;
 

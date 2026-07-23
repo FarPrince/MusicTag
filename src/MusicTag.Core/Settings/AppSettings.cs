@@ -47,7 +47,21 @@ public sealed class AppSettings
     /// sidecar .lrc file, per user request. Empty by default — the user must configure at least
     /// one directory via Settings before the button has anything to search.</summary>
     public List<string> LyricsSearchDirectories { get; set; } = [];
+
+    /// <summary>Per-column visibility + width for the main window's file grid, keyed by the
+    /// DataGridColumn's x:Name (see MainWindow.xaml/.xaml.cs). Captured on Closing, restored on
+    /// startup, per user request that "the tags I selected in the headers and the width of each
+    /// tag" persist across sessions. Empty on first-ever run, leaving the XAML-declared defaults
+    /// in effect.</summary>
+    public Dictionary<string, GridColumnState> GridColumns { get; set; } = new();
 }
+
+/// <summary>One grid column's persisted state — see <see cref="AppSettings.GridColumns"/>.
+/// Width is always the column's actual rendered pixel width at capture time, never a raw
+/// <c>DataGridLength.Value</c> — for a Star or Auto column (the XAML defaults for most of these)
+/// that value is a star coefficient or NaN, not a pixel size, so it wouldn't mean anything on
+/// restore.</summary>
+public sealed record GridColumnState(bool Visible, double Width);
 
 /// <summary>
 /// A restorable window position/size/maximized-state snapshot. Not given an exact shape by the

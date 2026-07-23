@@ -41,6 +41,11 @@ public class SettingsServiceTests
                 Theme = "Dark",
                 LastWindowPlacement = new WindowPlacement(10, 20, 800, 600, IsMaximized: false),
                 ExplorerIntegrationRegistered = true,
+                GridColumns = new Dictionary<string, GridColumnState>
+                {
+                    ["TitleColumn"] = new GridColumnState(Visible: true, Width: 142.5),
+                    ["GenreColumn"] = new GridColumnState(Visible: false, Width: 80),
+                },
             };
 
             service.Save(original);
@@ -50,6 +55,7 @@ public class SettingsServiceTests
             Assert.Equal(original.Theme, reloaded.Theme);
             Assert.Equal(original.LastWindowPlacement, reloaded.LastWindowPlacement);
             Assert.Equal(original.ExplorerIntegrationRegistered, reloaded.ExplorerIntegrationRegistered);
+            Assert.Equal(original.GridColumns, reloaded.GridColumns);
         }
         finally
         {

@@ -52,6 +52,7 @@ public partial class MainWindow : FluentWindow
         DataContext = viewModel;
 
         RestoreWindowPlacement();
+        RestoreGridColumnState();
         Closing += OnClosing;
 
         // DataGridColumn derives from plain DependencyObject, not FrameworkElement — it has no
@@ -147,6 +148,77 @@ public partial class MainWindow : FluentWindow
 
     private static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
 
+    /// <summary>Single source of truth for "which DataGridColumn goes with which settings key
+    /// and which MainWindowViewModel visibility property" — shared by
+    /// <see cref="RestoreGridColumnState"/> and <see cref="CaptureGridColumnState"/> so the two
+    /// directions of this mapping can't drift apart. FilenameColumn has no visibility toggle
+    /// (it's the row's identity — see the column-chooser's own doc comment), hence the null
+    /// getter/setter for it alone.</summary>
+    private (string Name, DataGridColumn Column, Func<bool>? GetVisible, Action<bool>? SetVisible)[] GetGridColumnBindings() =>
+    [
+        ("FilenameColumn", FilenameColumn, null, null),
+        ("TitleColumn", TitleColumn, () => _viewModel.IsTitleColumnVisible, v => _viewModel.IsTitleColumnVisible = v),
+        ("ArtistColumn", ArtistColumn, () => _viewModel.IsArtistColumnVisible, v => _viewModel.IsArtistColumnVisible = v),
+        ("AlbumColumn", AlbumColumn, () => _viewModel.IsAlbumColumnVisible, v => _viewModel.IsAlbumColumnVisible = v),
+        ("TrackNumberColumn", TrackNumberColumn, () => _viewModel.IsTrackNumberColumnVisible, v => _viewModel.IsTrackNumberColumnVisible = v),
+        ("YearColumn", YearColumn, () => _viewModel.IsYearColumnVisible, v => _viewModel.IsYearColumnVisible = v),
+        ("DurationColumn", DurationColumn, () => _viewModel.IsDurationColumnVisible, v => _viewModel.IsDurationColumnVisible = v),
+        ("AlbumArtistColumn", AlbumArtistColumn, () => _viewModel.IsAlbumArtistColumnVisible, v => _viewModel.IsAlbumArtistColumnVisible = v),
+        ("GenreColumn", GenreColumn, () => _viewModel.IsGenreColumnVisible, v => _viewModel.IsGenreColumnVisible = v),
+        ("ComposerColumn", ComposerColumn, () => _viewModel.IsComposerColumnVisible, v => _viewModel.IsComposerColumnVisible = v),
+        ("CommentColumn", CommentColumn, () => _viewModel.IsCommentColumnVisible, v => _viewModel.IsCommentColumnVisible = v),
+        ("DiscNumberColumn", DiscNumberColumn, () => _viewModel.IsDiscNumberColumnVisible, v => _viewModel.IsDiscNumberColumnVisible = v),
+        ("CodecColumn", CodecColumn, () => _viewModel.IsCodecColumnVisible, v => _viewModel.IsCodecColumnVisible = v),
+        ("BitrateColumn", BitrateColumn, () => _viewModel.IsBitrateColumnVisible, v => _viewModel.IsBitrateColumnVisible = v),
+        ("SampleRateColumn", SampleRateColumn, () => _viewModel.IsSampleRateColumnVisible, v => _viewModel.IsSampleRateColumnVisible = v),
+        ("ChannelsColumn", ChannelsColumn, () => _viewModel.IsChannelsColumnVisible, v => _viewModel.IsChannelsColumnVisible = v),
+        ("FileSizeColumn", FileSizeColumn, () => _viewModel.IsFileSizeColumnVisible, v => _viewModel.IsFileSizeColumnVisible = v),
+        ("TagFormatsColumn", TagFormatsColumn, () => _viewModel.IsTagFormatsColumnVisible, v => _viewModel.IsTagFormatsColumnVisible = v),
+        ("ModifiedColumn", ModifiedColumn, () => _viewModel.IsModifiedColumnVisible, v => _viewModel.IsModifiedColumnVisible = v),
+    ];
+
+    /// <summary>Applied once, before <see cref="ApplyAllOptionalColumnVisibility"/> — overwrites
+    /// each column's XAML-declared default Width and each MainWindowViewModel visibility
+    /// property from whatever a prior session last saved (see <see cref="CaptureGridColumnState"/>),
+    /// per user request that "the tags I selected in the headers and the width of each tag"
+    /// persist across sessions. Does nothing on first-ever run (no grid state saved yet, empty
+    /// dictionary), leaving the XAML/ViewModel defaults in effect.</summary>
+    private void RestoreGridColumnState()
+    {
+        var saved = _settingsService.Load().GridColumns;
+        if (saved.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (name, column, _, setVisible) in GetGridColumnBindings())
+        {
+            if (!saved.TryGetValue(name, out var state))
+            {
+                continue;
+            }
+
+            column.Width = new DataGridLength(state.Width);
+            setVisible?.Invoke(state.Visible);
+        }
+    }
+
+    /// <summary>Captures every column's current rendered width (see
+    /// <see cref="GridColumnState"/>'s own doc comment on why ActualWidth, not the column's own
+    /// Width.Value, is what's captured) and current visibility, called from
+    /// <see cref="OnClosing"/> alongside window-placement capture.</summary>
+    private Dictionary<string, GridColumnState> CaptureGridColumnState()
+    {
+        var result = new Dictionary<string, GridColumnState>();
+
+        foreach (var (name, column, getVisible, _) in GetGridColumnBindings())
+        {
+            result[name] = new GridColumnState(getVisible?.Invoke() ?? true, column.ActualWidth);
+        }
+
+        return result;
+    }
+
     /// <summary>Applied once, before <c>Show()</c> (see App.xaml.cs) — restores the last
     /// captured position/size/maximized-state, clamped to the *current* virtual screen bounds
     /// so a since-removed/reconfigured monitor can never strand the window off-screen
@@ -187,6 +259,7 @@ public partial class MainWindow : FluentWindow
         {
             var settings = _settingsService.Load();
             settings.LastWindowPlacement = CaptureWindowPlacement();
+            settings.GridColumns = CaptureGridColumnState();
             _settingsService.Save(settings);
         }
         catch (Exception)
