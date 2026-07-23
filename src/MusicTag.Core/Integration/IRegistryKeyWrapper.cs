@@ -16,6 +16,11 @@ public interface IRegistryKeyWrapper
     /// display text and command line are both stored as.</summary>
     void SetDefaultValue(string subKeyPath, string value);
 
+    /// <summary>Creates (or opens) the given HKCU-relative subkey path and sets a named
+    /// (non-default) value on it — used for a context-menu entry's "Icon" value, which
+    /// Explorer reads separately from the entry's default (display-text) value.</summary>
+    void SetNamedValue(string subKeyPath, string valueName, string value);
+
     /// <summary>Returns the default (unnamed) value of the given HKCU-relative subkey path, or
     /// null if the key doesn't exist. Used by <see cref="IExplorerIntegrationService.IsRegistered"/>.</summary>
     string? GetDefaultValue(string subKeyPath);

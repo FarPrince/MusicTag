@@ -27,6 +27,14 @@ public sealed class RegistryKeyWrapper : IRegistryKeyWrapper
         key.SetValue(null, value);
     }
 
+    public void SetNamedValue(string subKeyPath, string valueName, string value)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(subKeyPath, writable: true)
+            ?? throw new InvalidOperationException($"Could not create or open registry key \"{subKeyPath}\".");
+
+        key.SetValue(valueName, value);
+    }
+
     public string? GetDefaultValue(string subKeyPath)
     {
         using var key = Registry.CurrentUser.OpenSubKey(subKeyPath, writable: false);
