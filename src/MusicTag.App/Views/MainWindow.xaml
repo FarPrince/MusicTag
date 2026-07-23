@@ -155,6 +155,7 @@
                          GridLinesVisibility="Horizontal"
                          CellEditEnding="OnFileGridCellEditEnding"
                          PreviewMouseLeftButtonDown="OnFileGridPreviewMouseLeftButtonDown"
+                         PreviewMouseLeftButtonUp="OnFileGridPreviewMouseLeftButtonUp"
                          PreviewMouseRightButtonUp="OnFileGridPreviewMouseRightButtonUp"
                          PreviewKeyDown="OnFileGridPreviewKeyDown"
                          AlternationCount="2"

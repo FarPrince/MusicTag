@@ -414,6 +414,11 @@ public partial class MainWindow : FluentWindow
     /// <c>CurrentCell</c> assignment still showed no edit control appearing).</summary>
     private void OnFileGridPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 1)
+        {
+            TryBeginColumnResizeCascadeGuard(e);
+        }
+
         if (e.ClickCount != 2)
             return;
 
@@ -429,6 +434,97 @@ public partial class MainWindow : FluentWindow
         FileGrid.CurrentCell = new DataGridCellInfo(row.Item, FilenameColumn);
         FileGrid.BeginEdit(e);
         e.Handled = true;
+    }
+
+    private readonly Dictionary<DataGridColumn, double> _preResizeStarValues = new();
+    private DataGridColumn? _resizingStarColumn;
+    private DataGridColumn? _resizingStarNeighbor;
+
+    /// <summary>WPF's default DataGrid column resize redistributes a Star column's width
+    /// change across EVERY other Star column proportionally (documented WPF behavior — "if the
+    /// column being resized doesn't have enough room, other star columns are resized in
+    /// proportion") rather than confining the change to just the two columns sharing the
+    /// dragged border — reported back as "moving the handle for one column shouldn't impact
+    /// the width of others (only the tags directly adjacent to the handle)". A Star column's
+    /// Value (the coefficient — e.g. 2 for "2*") never changes on its own from a window
+    /// resize; only ActualWidth (the rendered pixel size) does — Value only ever changes from
+    /// a manual header-border drag. That makes "snapshot every Star column's Value right as a
+    /// resize-grip mouse-down happens, then reset every column except the dragged one and its
+    /// immediate neighbor back to that snapshot once the drag ends" (see
+    /// <see cref="OnFileGridPreviewMouseLeftButtonUp"/>) a safe, targeted fix: it can't
+    /// misfire on a plain window resize, since that path never touches Value at all. Every
+    /// mouse-down clears any stale pending state first — a resize started but never properly
+    /// finished (focus lost mid-drag, etc.) must not have its guard fire later against an
+    /// unrelated mouse-up.</summary>
+    private void TryBeginColumnResizeCascadeGuard(MouseButtonEventArgs e)
+    {
+        _resizingStarColumn = null;
+        _resizingStarNeighbor = null;
+
+        if (FindAncestor<System.Windows.Controls.Primitives.DataGridColumnHeader>(e.OriginalSource as DependencyObject) is not { Column: { } column } header)
+            return;
+
+        // The resize grip lives at the header's right edge — a plain click elsewhere on the
+        // header (e.g. starting a reorder-drag, or a click that lands on a sort indicator)
+        // must not arm the guard.
+        const double edgeTolerance = 6.0;
+        if (header.ActualWidth - e.GetPosition(header).X > edgeTolerance)
+            return;
+
+        if (column.Width.UnitType != DataGridLengthUnitType.Star)
+            return;
+
+        var starColumns = FileGrid.Columns
+            .Where(c => c.Visibility == Visibility.Visible && c.Width.UnitType == DataGridLengthUnitType.Star)
+            .OrderBy(c => c.DisplayIndex)
+            .ToList();
+
+        var index = starColumns.IndexOf(column);
+        if (index < 0)
+            return;
+
+        // The dragged column's own right border trades with whichever visible Star column is
+        // next in display order — falling back to the previous one if this is the last
+        // visible Star column (nothing to its right to trade with).
+        var neighbor = index < starColumns.Count - 1 ? starColumns[index + 1] : index > 0 ? starColumns[index - 1] : null;
+        if (neighbor is null)
+            return;
+
+        _resizingStarColumn = column;
+        _resizingStarNeighbor = neighbor;
+        _preResizeStarValues.Clear();
+        foreach (var starColumn in starColumns)
+        {
+            _preResizeStarValues[starColumn] = starColumn.Width.Value;
+        }
+    }
+
+    /// <summary>Completes the resize-cascade guard armed by
+    /// <see cref="TryBeginColumnResizeCascadeGuard"/>: gives the dragged column's neighbor
+    /// exactly the width the drag took from (or gave to) the dragged column — preserving the
+    /// total Star budget across just those two — and puts every other Star column back exactly
+    /// where it was before the drag, undoing whatever WPF's default proportional redistribution
+    /// did to them. A no-op if no resize-edge mouse-down armed the guard, or if the drag never
+    /// actually changed anything (delta 0).</summary>
+    private void OnFileGridPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_resizingStarColumn is not { } column || _resizingStarNeighbor is not { } neighbor)
+            return;
+
+        var delta = column.Width.Value - _preResizeStarValues[column];
+        neighbor.Width = new DataGridLength(_preResizeStarValues[neighbor] - delta, DataGridLengthUnitType.Star);
+
+        foreach (var (starColumn, originalValue) in _preResizeStarValues)
+        {
+            if (ReferenceEquals(starColumn, column) || ReferenceEquals(starColumn, neighbor))
+                continue;
+
+            starColumn.Width = new DataGridLength(originalValue, DataGridLengthUnitType.Star);
+        }
+
+        _resizingStarColumn = null;
+        _resizingStarNeighbor = null;
+        _preResizeStarValues.Clear();
     }
 
     /// <summary>Auto-selects the existing filename text when the inline editor appears, the
