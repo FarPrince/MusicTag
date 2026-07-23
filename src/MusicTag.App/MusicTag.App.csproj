@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <!-- Drives the exe's embedded file/product version (Explorer Properties > Details) — kept
+         in sync with installer/MusicTag.iss's MyAppVersion, which drives the separate
+         Add/Remove Programs version and the Setup-{version}.exe output filename. -->
+    <Version>1.4.0</Version>
     <OutputType>WinExe</OutputType>
     <!-- Without this, the shipped binary defaults to MusicTag.App.exe (the project file's own
          name) — an internal three-project-solution naming detail (App/Core/Tests suffixes so
