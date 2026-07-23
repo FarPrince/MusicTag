@@ -43,8 +43,8 @@ public class SettingsServiceTests
                 ExplorerIntegrationRegistered = true,
                 GridColumns = new Dictionary<string, GridColumnState>
                 {
-                    ["TitleColumn"] = new GridColumnState(Visible: true, Width: 142.5),
-                    ["GenreColumn"] = new GridColumnState(Visible: false, Width: 80),
+                    ["TitleColumn"] = new GridColumnState(Visible: true, Width: 2, DisplayIndex: 1, WidthUnitType: "Star"),
+                    ["GenreColumn"] = new GridColumnState(Visible: false, Width: 80, DisplayIndex: -1, WidthUnitType: "Pixel"),
                 },
             };
 

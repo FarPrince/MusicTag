@@ -178,11 +178,12 @@ public partial class MainWindow : FluentWindow
     ];
 
     /// <summary>Applied once, before <see cref="ApplyAllOptionalColumnVisibility"/> — overwrites
-    /// each column's XAML-declared default Width and each MainWindowViewModel visibility
-    /// property from whatever a prior session last saved (see <see cref="CaptureGridColumnState"/>),
-    /// per user request that "the tags I selected in the headers and the width of each tag"
-    /// persist across sessions. Does nothing on first-ever run (no grid state saved yet, empty
-    /// dictionary), leaving the XAML/ViewModel defaults in effect.</summary>
+    /// each column's XAML-declared default Width, DisplayIndex, and each MainWindowViewModel
+    /// visibility property from whatever a prior session last saved (see
+    /// <see cref="CaptureGridColumnState"/>), per user request that "the tags I selected in the
+    /// headers and the width of each tag" — and, per a follow-up request, the order the user
+    /// placed them in — persist across sessions. Does nothing on first-ever run (no grid state
+    /// saved yet, empty dictionary), leaving the XAML/ViewModel defaults in effect.</summary>
     private void RestoreGridColumnState()
     {
         var saved = _settingsService.Load().GridColumns;
@@ -191,29 +192,69 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        foreach (var (name, column, _, setVisible) in GetGridColumnBindings())
+        var bindings = GetGridColumnBindings();
+        foreach (var (name, column, _, setVisible) in bindings)
         {
             if (!saved.TryGetValue(name, out var state))
             {
                 continue;
             }
 
-            column.Width = new DataGridLength(state.Width);
             setVisible?.Invoke(state.Visible);
+
+            // A null/unrecognized WidthUnitType means either a settings file saved before this
+            // field existed, or one that's otherwise unreliable — see GridColumnState's own doc
+            // comment on why that must NOT fall back to treating the raw Width as a pixel value:
+            // that's exactly the bug that shipped in v1.6 (every Star-sized column silently
+            // frozen to a fixed pixel width, breaking window-resize scaling). Leaving Width
+            // untouched here keeps the XAML-declared default (Star/Auto) in effect instead.
+            if (state.WidthUnitType is { } unitTypeName && Enum.TryParse<DataGridLengthUnitType>(unitTypeName, out var unitType))
+            {
+                column.Width = new DataGridLength(state.Width, unitType);
+            }
+        }
+
+        // Reordering is separate from the width/visibility loop above because DisplayIndex
+        // assignments interact with every other column's DisplayIndex (WPF shifts the rest of
+        // the grid to keep indices a contiguous 0..N-1 permutation), so every column has to be
+        // assigned together in one ascending pass rather than one at a time as each is
+        // encountered. Only runs at all once every column in the grid has a real saved index —
+        // a settings file written before this feature existed (or a partial/corrupt one) has
+        // every DisplayIndex defaulted to -1 (see GridColumnState's own doc comment), and
+        // reordering off of a subset would misplace the columns with no saved position instead
+        // of just leaving the whole arrangement as XAML declared it.
+        var ordered = bindings
+            .Where(b => saved.TryGetValue(b.Name, out var state) && state.DisplayIndex >= 0)
+            .Select(b => (b.Column, Index: saved[b.Name].DisplayIndex))
+            .OrderBy(entry => entry.Index)
+            .ToList();
+
+        if (ordered.Count != bindings.Length)
+        {
+            return;
+        }
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].Column.DisplayIndex = i;
         }
     }
 
-    /// <summary>Captures every column's current rendered width (see
-    /// <see cref="GridColumnState"/>'s own doc comment on why ActualWidth, not the column's own
-    /// Width.Value, is what's captured) and current visibility, called from
-    /// <see cref="OnClosing"/> alongside window-placement capture.</summary>
+    /// <summary>Captures every column's current Width verbatim — Value AND UnitType (see
+    /// <see cref="GridColumnState"/>'s own doc comment on why ActualWidth alone isn't enough) —
+    /// current visibility, and current DisplayIndex (the user's drag-to-reorder position),
+    /// called from <see cref="OnClosing"/> alongside window-placement capture.</summary>
     private Dictionary<string, GridColumnState> CaptureGridColumnState()
     {
         var result = new Dictionary<string, GridColumnState>();
 
         foreach (var (name, column, getVisible, _) in GetGridColumnBindings())
         {
-            result[name] = new GridColumnState(getVisible?.Invoke() ?? true, column.ActualWidth);
+            result[name] = new GridColumnState(
+                getVisible?.Invoke() ?? true,
+                column.Width.Value,
+                column.DisplayIndex,
+                column.Width.UnitType.ToString());
         }
 
         return result;

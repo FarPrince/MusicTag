@@ -48,20 +48,35 @@ public sealed class AppSettings
     /// one directory via Settings before the button has anything to search.</summary>
     public List<string> LyricsSearchDirectories { get; set; } = [];
 
-    /// <summary>Per-column visibility + width for the main window's file grid, keyed by the
-    /// DataGridColumn's x:Name (see MainWindow.xaml/.xaml.cs). Captured on Closing, restored on
-    /// startup, per user request that "the tags I selected in the headers and the width of each
-    /// tag" persist across sessions. Empty on first-ever run, leaving the XAML-declared defaults
-    /// in effect.</summary>
+    /// <summary>Per-column visibility, width, and display order for the main window's file grid,
+    /// keyed by the DataGridColumn's x:Name (see MainWindow.xaml/.xaml.cs). Captured on Closing,
+    /// restored on startup, per user request that "the tags I selected in the headers and the
+    /// width of each tag" — and, per a follow-up request, the order the user placed them in —
+    /// persist across sessions. Empty on first-ever run, leaving the XAML-declared defaults in
+    /// effect.</summary>
     public Dictionary<string, GridColumnState> GridColumns { get; set; } = new();
 }
 
 /// <summary>One grid column's persisted state — see <see cref="AppSettings.GridColumns"/>.
-/// Width is always the column's actual rendered pixel width at capture time, never a raw
-/// <c>DataGridLength.Value</c> — for a Star or Auto column (the XAML defaults for most of these)
-/// that value is a star coefficient or NaN, not a pixel size, so it wouldn't mean anything on
-/// restore.</summary>
-public sealed record GridColumnState(bool Visible, double Width);
+/// Width and WidthUnitType together are always the column's own <c>DataGridColumn.Width</c>
+/// (a WPF <c>DataGridLength</c>'s Value + UnitType) captured verbatim, NOT a synthesized pixel
+/// value derived from <c>ActualWidth</c> — an earlier version of this feature captured
+/// ActualWidth unconditionally, which silently converted every Star-sized column (Filename/
+/// Title/Artist/Album/etc. — "fill remaining space, scale with the window") into a fixed Pixel
+/// width on the very next restore even for a column the user never touched, breaking window-resize
+/// scaling and causing columns to get clipped by the side panel — reported back after v1.6
+/// shipped. WidthUnitType is a plain string (a WPF <c>DataGridLengthUnitType</c> enum name —
+/// "Auto"/"Pixel"/"Star"/etc. — rather than the enum type itself, since MusicTag.Core has no WPF
+/// reference) and defaults to null so a settings file saved before this fix (or any other file
+/// missing it) is recognized as unreliable pixel-only data — MainWindow.xaml.cs's
+/// RestoreGridColumnState skips restoring Width entirely for a column whose saved state has no
+/// WidthUnitType, leaving whatever XAML declared (Star for the wide text columns, Auto for the
+/// narrow numeric ones) in effect, rather than trusting a value that might have been an
+/// accidentally-frozen Star column. DisplayIndex defaults to -1 ("no saved order") for the same
+/// reason — a settings file written before column-order persistence existed shouldn't be misread
+/// as "every column wants index 0"; RestoreGridColumnState only reorders columns at all once
+/// every column in the grid has a real (non-negative) saved index.</summary>
+public sealed record GridColumnState(bool Visible, double Width, int DisplayIndex = -1, string? WidthUnitType = null);
 
 /// <summary>
 /// A restorable window position/size/maximized-state snapshot. Not given an exact shape by the
