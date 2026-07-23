@@ -211,14 +211,17 @@ public partial class MainWindow : FluentWindow
             // frozen to a fixed pixel width, breaking window-resize scaling). Leaving Width
             // untouched here keeps the XAML-declared default (Star/Auto) in effect instead.
             //
-            // A Star value <= 0 is never valid (a real bug in an earlier version of the
-            // resize-cascade guard could write one out — see MinStarValue's own doc comment) —
-            // restoring it would keep that column permanently zero/negative-width every session
-            // from then on, so this is treated the same as an unrecognized unit type: fall back
-            // to the XAML default instead of trusting corrupt data.
+            // A Width <= 0 is never valid for any unit type this app actually uses (a real bug
+            // in an earlier version of the resize-cascade guard could write out a negative Star
+            // value — see MinStarValue's own doc comment) — restoring it would keep that column
+            // permanently zero/negative-width every session from then on (worse still, once
+            // canonical-width tracking picks it up, OnFileGridSizeChanged would keep
+            // re-asserting the very corruption this guard exists to stop), so this is treated
+            // the same as an unrecognized unit type: fall back to the XAML default instead of
+            // trusting corrupt data.
             if (state.WidthUnitType is { } unitTypeName
                 && Enum.TryParse<DataGridLengthUnitType>(unitTypeName, out var unitType)
-                && (unitType != DataGridLengthUnitType.Star || state.Width > 0))
+                && state.Width > 0)
             {
                 column.Width = new DataGridLength(state.Width, unitType);
             }
@@ -567,8 +570,20 @@ public partial class MainWindow : FluentWindow
         {
             var totalPairValue = _preResizeStarValues[column] + _preResizeStarValues[neighbor];
             var requestedColumnValue = column.Width.Value;
-            var clampedColumnValue = Math.Clamp(requestedColumnValue, MinStarValue, totalPairValue - MinStarValue);
-            var clampedNeighborValue = totalPairValue - clampedColumnValue;
+
+            // Math.Clamp(value, min, max) throws if min > max, which "totalPairValue -
+            // MinStarValue < MinStarValue" can trigger whenever the pair's combined budget is
+            // already below 2x the floor (repeated prior resizes can drive individual columns
+            // arbitrarily close to MinStarValue, and reordering can then put two such columns
+            // adjacent to each other) — using the same Math.Max(min, Math.Min(...)) pattern
+            // ClampToVirtualScreen already uses elsewhere in this file degrades gracefully
+            // instead of crashing the app on an ordinary resize gesture. The neighbor is then
+            // independently floored too, since in that same degenerate case
+            // "totalPairValue - clampedColumnValue" can itself still fall below (or even below
+            // zero of) MinStarValue — this trades exact budget conservation for guaranteed
+            // positivity only in that rare edge case; an ordinary resize is unaffected.
+            var clampedColumnValue = Math.Max(MinStarValue, Math.Min(requestedColumnValue, totalPairValue - MinStarValue));
+            var clampedNeighborValue = Math.Max(MinStarValue, totalPairValue - clampedColumnValue);
 
             column.Width = new DataGridLength(clampedColumnValue, DataGridLengthUnitType.Star);
             neighbor.Width = new DataGridLength(clampedNeighborValue, DataGridLengthUnitType.Star);
