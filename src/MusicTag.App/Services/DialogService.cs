@@ -1,3 +1,6 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using MusicTag.App.ViewModels;
 using MusicTag.App.Views;
 using MusicTag.App.Views.Dialogs;
@@ -9,10 +12,11 @@ using MusicTag.Core.Settings;
 namespace MusicTag.App.Services;
 
 /// <summary>
-/// M7 adds ShowSettings and, with it, this class's first constructor dependencies — previously
-/// every dialog here was simple enough to be built with no injected state at all. SettingsWindow
-/// needs a SettingsViewModel built fresh per open (see ShowSettings' own doc comment on why it's
-/// intentionally not a DI singleton), so its three dependencies flow through here instead.
+/// ShowSettingsAsync's dependencies flow through here because SettingsWindow needs a
+/// SettingsViewModel built fresh per open (see its own doc comment on why it's intentionally
+/// not a DI singleton). Every modal dialog is awaited via Avalonia's Task-based
+/// <c>Window.ShowDialog(Window owner)</c> — see IDialogService's own doc comment on why that's
+/// async here where the WPF original was synchronous.
 /// </summary>
 public sealed class DialogService : IDialogService
 {
@@ -36,94 +40,86 @@ public sealed class DialogService : IDialogService
         _lyricsSearchService = lyricsSearchService;
     }
 
-    public void ShowSaveErrors(IReadOnlyList<(AudioFile File, Exception Error)> failures)
-    {
-        var dialog = new SaveErrorsDialog(failures)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
+    private static Window? MainWindow =>
+        (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
-        dialog.ShowDialog();
+    public async Task ShowSaveErrorsAsync(IReadOnlyList<(AudioFile File, Exception Error)> failures)
+    {
+        var dialog = new SaveErrorsDialog(failures);
+        await ShowDialogAsync(dialog);
     }
 
-    public bool ConfirmDiscardChanges()
+    public async Task<bool> ConfirmDiscardChangesAsync()
     {
-        var dialog = new DiscardChangesDialog
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-
-        dialog.ShowDialog();
+        var dialog = new DiscardChangesDialog();
+        await ShowDialogAsync(dialog);
         return dialog.Confirmed;
     }
 
-    public void ShowRenameError(string message)
+    public async Task ShowRenameErrorAsync(string message)
     {
-        var dialog = new RenameErrorDialog(message)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-
-        dialog.ShowDialog();
+        var dialog = new RenameErrorDialog(message);
+        await ShowDialogAsync(dialog);
     }
 
-    public void ShowError(string title, string message)
+    public async Task ShowErrorAsync(string title, string message)
     {
-        var dialog = new ErrorDialog(title, message)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-
-        dialog.ShowDialog();
+        var dialog = new ErrorDialog(title, message);
+        await ShowDialogAsync(dialog);
     }
 
-    public void ShowInfo(string title, string message)
+    public async Task ShowInfoAsync(string title, string message)
     {
-        var dialog = new ErrorDialog(title, message)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-
-        dialog.ShowDialog();
+        var dialog = new ErrorDialog(title, message);
+        await ShowDialogAsync(dialog);
     }
 
     /// <summary>Builds a fresh SettingsViewModel per call (not a DI singleton — see the class
-    /// doc comment) so every open reloads whatever is currently on disk/in the registry.</summary>
-    public void ShowSettings()
+    /// doc comment) so every open reloads whatever is currently on disk/registered.</summary>
+    public async Task ShowSettingsAsync()
     {
         var viewModel = new SettingsViewModel(_settingsService, _explorerIntegrationService, _filePickerService, _themeService, this);
-        var window = new SettingsWindow(viewModel)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-
-        window.ShowDialog();
+        var window = new SettingsWindow(viewModel);
+        await ShowDialogAsync(window);
     }
 
-    /// <summary>M8: shows the static keyboard-shortcuts reference (Help menu → "Keyboard
-    /// Shortcuts"). Deliberately non-modal (<c>Show</c>, not <c>ShowDialog</c>) — unlike every
-    /// other dialog here, this one has no state to collect or action to confirm, so there's no
-    /// reason to block interacting with the main window while it's open; a user plausibly wants
-    /// to glance at it while trying a shortcut. Owned by MainWindow so it closes if the app's
-    /// main window does, but doesn't otherwise interfere with it.</summary>
+    /// <summary>Shows the static keyboard-shortcuts reference. Deliberately non-modal (<c>Show</c>,
+    /// not <c>ShowDialog</c>) — unlike every other dialog here, this one has no state to collect
+    /// or action to confirm, so there's no reason to block interacting with the main window
+    /// while it's open. Owned by MainWindow so it closes if the app's main window does, but
+    /// doesn't otherwise interfere with it.</summary>
     public void ShowShortcutsReference()
     {
-        var window = new ShortcutsReferenceWindow
+        var window = new ShortcutsReferenceWindow();
+        if (MainWindow is { } owner)
         {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-
-        window.Show();
+            window.Show(owner);
+        }
+        else
+        {
+            window.Show();
+        }
     }
 
-    public void ShowLyricsSearchDialog(IReadOnlyList<string> directories)
+    public async Task ShowLyricsSearchDialogAsync(IReadOnlyList<string> directories)
     {
         var viewModel = new LyricsSearchDialogViewModel(_lyricsSearchService, directories);
-        var dialog = new LyricsSearchDialog(viewModel)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
+        var dialog = new LyricsSearchDialog(viewModel);
+        await ShowDialogAsync(dialog);
+    }
 
-        dialog.ShowDialog();
+    private static async Task ShowDialogAsync(Window dialog)
+    {
+        if (MainWindow is { } owner)
+        {
+            await dialog.ShowDialog(owner);
+        }
+        else
+        {
+            // No main window yet (shouldn't happen in practice — every dialog is triggered by
+            // user action against an already-open main window) — fall back to a non-modal show
+            // rather than throwing, so a dialog can never silently fail to appear at all.
+            dialog.Show();
+        }
     }
 }

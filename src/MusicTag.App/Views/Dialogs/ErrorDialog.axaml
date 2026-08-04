@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        mc:Ignorable="d"
+        x:Class="MusicTag.App.Views.Dialogs.ErrorDialog"
+        Width="440" Height="260"
+        MinWidth="380" MinHeight="220"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <TextBlock Margin="16" TextWrapping="Wrap" Text="{Binding Message}" />
+        </ScrollViewer>
+
+        <Button Grid.Row="1" Content="Close" HorizontalAlignment="Right" Margin="16" Click="OnCloseClick" />
+    </Grid>
+</Window>

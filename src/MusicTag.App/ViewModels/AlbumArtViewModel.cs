@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.IO;
-using System.Windows.Media.Imaging;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MusicTag.App.Services;
@@ -160,9 +160,9 @@ public sealed partial class AlbumArtViewModel : ObservableObject
     /// <see cref="ApplyImageBytes"/> — the same all-or-nothing batch-apply path used by
     /// paste/drag-drop.</summary>
     [RelayCommand(CanExecute = nameof(CanEdit))]
-    private void Replace()
+    private async Task Replace()
     {
-        var path = _filePickerService.PickImageFile();
+        var path = await _filePickerService.PickImageFileAsync();
         if (path is null)
             return;
 
@@ -212,7 +212,7 @@ public sealed partial class AlbumArtViewModel : ObservableObject
     /// <see cref="IsMixed"/> above for why this stays in sync automatically rather than needing
     /// its own explicit refresh call.</summary>
     [RelayCommand(CanExecute = nameof(CanExtract))]
-    private void Extract()
+    private async Task Extract()
     {
         if (ImageBytes is not { Length: > 0 } bytes)
             return;
@@ -222,7 +222,7 @@ public sealed partial class AlbumArtViewModel : ObservableObject
             ? Path.GetFileNameWithoutExtension(_selectedFiles[0].FileName)
             : "cover") + extension;
 
-        var path = _filePickerService.PickSaveImageFile(suggestedName);
+        var path = await _filePickerService.PickSaveImageFileAsync(suggestedName);
         if (path is null)
             return;
 
@@ -258,9 +258,8 @@ public sealed partial class AlbumArtViewModel : ObservableObject
         try
         {
             using var stream = new MemoryStream(bytes);
-            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.None);
-            var frame = decoder.Frames[0];
-            return $"{format.Label} · {frame.PixelWidth}×{frame.PixelHeight} · {sizeLabel}";
+            using var bitmap = new Bitmap(stream);
+            return $"{format.Label} · {bitmap.PixelSize.Width}×{bitmap.PixelSize.Height} · {sizeLabel}";
         }
         catch (Exception)
         {

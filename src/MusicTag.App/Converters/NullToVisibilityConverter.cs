@@ -1,22 +1,20 @@
 using System.Globalization;
-using System.Windows;
-using System.Windows.Data;
+using Avalonia.Data.Converters;
 
 namespace MusicTag.App.Converters;
 
 /// <summary>
-/// Collapses an element when the bound value is null (or an empty string), visible
-/// otherwise. Used by the status bar's undo-stack description (plan section 5) so the
-/// "Last change: ..." segment simply isn't shown at all while EditHistory's undo stack is
-/// empty, rather than rendering an awkward "Last change: " with nothing after it.
+/// Converts a bound value to false (hides the element) when it's null or an empty string, true
+/// otherwise — bind to a control's <c>IsVisible</c> (Avalonia has no separate
+/// Visible/Collapsed/Hidden enum the way WPF's Visibility does; every control is shown/hidden
+/// via the one bool property). Used by the status bar's undo-stack description so the "Last
+/// change: ..." segment simply isn't shown at all while EditHistory's undo stack is empty.
 /// </summary>
 public sealed class NullToVisibilityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is null or ""
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        => value is not (null or "");
 
-    public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture)
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }

@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        mc:Ignorable="d"
+        x:Class="MusicTag.App.Views.Dialogs.DiscardChangesDialog"
+        Title="Discard Changes?" Width="440" Height="220"
+        MinWidth="380" MinHeight="200"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto">
+        <TextBlock Grid.Row="0" Margin="16" TextWrapping="Wrap"
+                   Text="Some files have unsaved changes. Continuing will discard those changes and clear the undo history for the currently open folder. Continue?" />
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
+            <Button Content="Cancel" Margin="0,0,8,0" Click="OnCancelClick" />
+            <Button Content="Discard Changes" Click="OnDiscardClick" />
+        </StackPanel>
+    </Grid>
+</Window>

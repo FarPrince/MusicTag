@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\MusicTag.Core\MusicTag.Core.csproj" />
@@ -7,47 +7,68 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.142" />
-    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <!-- Avalonia is the cross-platform (Windows/Linux/macOS) WPF replacement — see CLAUDE.md's
+         "Rewritten for Linux" section. FluentAvaloniaUI stands in for WPF-UI (closest
+         equivalent Fluent/WinUI-style control library for Avalonia); Avalonia.Xaml.Behaviors
+         stands in for Microsoft.Xaml.Behaviors.Wpf (same Interaction.Behaviors XAML syntax, a
+         different NuGet org because Avalonia forked the WPF behaviors SDK early on).
+         Avalonia.Controls.DataGrid is a separate package (not bundled in core Avalonia the way
+         WPF bundles DataGrid) — its column/row API is intentionally close to WPF's DataGrid,
+         which is what makes MainWindow's grid logic (resize-cascade guard, column
+         width/order/visibility persistence) portable almost 1:1. -->
+    <PackageReference Include="Avalonia" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.3.0.6" />
+    <PackageReference Include="FluentAvaloniaUI" Version="2.4.0" />
+    <!-- Avalonia's own XAML designer/dev-tools overlay (Alt+F12 at runtime) — Debug-only,
+         mirrors how the old WinForms fallback dialog was already a Debug-irrelevant, edge-case
+         dependency; ships in every configuration in upstream Avalonia templates, but there is
+         no reason to carry it into a Release build users actually receive. -->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- Drives the exe's embedded file/product version (Explorer Properties > Details) — kept
-         in sync with installer/MusicTag.iss's MyAppVersion, which drives the separate
-         Add/Remove Programs version and the Setup-{version}.exe output filename. -->
+    <!-- Drives the exe's embedded file/product version (Explorer Properties > Details on
+         Windows; rpm package metadata on Linux) — kept in sync with installer/MusicTag.iss's
+         MyAppVersion and installer/fedora/musictag.spec's Version. -->
     <Version>1.11.0</Version>
+    <!-- Honored on Windows (suppresses the console window); ignored on Linux/macOS, where a
+         GUI app never has one to begin with — the one Avalonia/dotnet publish output type that
+         works correctly cross-platform with no per-OS conditional needed. -->
     <OutputType>WinExe</OutputType>
-    <!-- Without this, the shipped binary defaults to MusicTag.App.exe (the project file's own
-         name) — an internal three-project-solution naming detail (App/Core/Tests suffixes so
-         they don't collide) that shouldn't leak into what users actually see in the Start
-         Menu, taskbar, or Task Manager. -->
+    <!-- Without this, the shipped binary defaults to MusicTag.App.exe/MusicTag.App (the
+         project file's own name) — an internal three-project-solution naming detail (App/Core/
+         Tests suffixes so they don't collide) that shouldn't leak into what users actually see
+         in the Start Menu/taskbar (Windows) or app grid/`ps` (Linux). -->
     <AssemblyName>MusicTag</AssemblyName>
-    <UseWPF>true</UseWPF>
-    <!-- WinForms is referenced only as a fallback folder-picker path (FolderBrowserDialog)
-         in case Microsoft.Win32.OpenFolderDialog misbehaves on a given Windows version —
-         see Services/FilePickerService.cs and plan risk #4. -->
-    <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <!-- WFAC010: WinForms' analyzer wants high-DPI set via its own API/property, but we
-         only use WinForms for a single fallback modal dialog (FolderBrowserDialog) — the
-         manifest's PerMonitorV2 declaration (required by the plan) governs process-wide
-         DPI awareness for the whole app, WPF included, so this warning is a false
-         positive in this specific WPF-primary/WinForms-fallback setup. -->
-    <NoWarn>$(NoWarn);WFAC010</NoWarn>
-    <!-- Per user feedback ("add a logo to the top left of the page and the taskbar"):
-         embeds Assets/logo.ico as the exe's native Win32 icon resource, which Explorer and
-         the taskbar both read directly from the .exe file (e.g. before the app is even
-         running, and as the fallback Window icon). MainWindow.xaml additionally sets its
-         own Window.Icon (same file, for the live taskbar/Alt-Tab icon and default window
-         icon) and the custom ui:TitleBar's Icon (a small ui:ImageIcon, for the top-left of
-         the in-window title bar row itself, since ExtendsContentIntoTitleBar removes the
-         OS-drawn one that would otherwise show it). -->
+    <!-- Avalonia's compiled-bindings opt-in is deliberately left at its default (off): every
+         {Binding Path} in the ported XAML uses classic reflection-based binding, matching
+         exactly how the WPF views already bound (no x:DataType annotations needed on every
+         view, which would otherwise be a second, unrelated rewrite bundled into this port). -->
+    <!-- Embeds Assets/logo.ico as the exe's native icon resource on Windows (Explorer/taskbar
+         read it directly from the .exe, before the app is even running). Has no equivalent
+         mechanism on Linux — MSBuild silently ignores this property there — which is why the
+         Fedora RPM installs Assets/logo.png separately under /usr/share/icons (see
+         installer/fedora/musictag.spec) and LinuxFileManagerIntegrationService points its
+         .desktop entry at that installed icon instead. -->
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\logo.ico" />
-    <Resource Include="Assets\logo.png" />
+    <!-- AvaloniaResource (not WPF's plain "Resource") is Avalonia's embedded-asset build
+         action — read back at runtime via an avares:// URI (see App.axaml's Window Icon and
+         MainWindow.axaml's TitleBar icon). -->
+    <AvaloniaResource Include="Assets\logo.ico" />
+    <AvaloniaResource Include="Assets\logo.png" />
+    <!-- Also copied out as a loose file next to the published binary (unlike the
+         AvaloniaResource embedding above, which only the app's own process can read via
+         avares://) — LinuxFileManagerIntegrationService.Register() points the .desktop entry's
+         Icon= value at this exact sibling path when present, the direct Linux analogue of the
+         Windows registry Icon value pointing at the .exe's own embedded icon. -->
+    <None Include="Assets\logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

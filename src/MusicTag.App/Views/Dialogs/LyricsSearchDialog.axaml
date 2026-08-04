@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:vm="clr-namespace:MusicTag.App.ViewModels"
+        xmlns:conv="clr-namespace:MusicTag.App.Converters"
+        mc:Ignorable="d"
+        x:Class="MusicTag.App.Views.Dialogs.LyricsSearchDialog"
+        Title="Search Lyrics" Width="520" Height="480"
+        MinWidth="400" MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        Opened="OnOpened"
+        Closing="OnClosing">
+    <Window.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToCollapsedConverter" />
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <StackPanel Grid.Row="0" Margin="16,12,16,0">
+            <ProgressBar Minimum="0" Maximum="{Binding Total}" Value="{Binding Current}"
+                         IsIndeterminate="{Binding IsIndeterminate}" Height="4" />
+            <TextBlock Text="{Binding StatusText}" Margin="0,8,0,0" />
+        </StackPanel>
+
+        <!-- Newest-first per-file result list — see LyricsSearchDialogViewModel.Results. -->
+        <ListBox Grid.Row="1" Margin="16,8" ItemsSource="{Binding Results}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                        <TextBlock Grid.Column="0" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding Outcome}" Opacity="0.7" Margin="12,0,0,0" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Grid.Row="2" Margin="16,0,16,8" TextWrapping="Wrap"
+                   Text="{Binding SummaryText}"
+                   IsVisible="{Binding SummaryText, Converter={StaticResource NullToCollapsedConverter}}" />
+
+        <Button Grid.Row="3" Content="{Binding PrimaryButtonText}" HorizontalAlignment="Right"
+                Margin="16" Click="OnPrimaryButtonClick" />
+    </Grid>
+</Window>

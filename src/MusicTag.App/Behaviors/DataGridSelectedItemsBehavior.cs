@@ -1,57 +1,58 @@
 using System.Collections;
-using System.Windows;
-using System.Windows.Controls;
-using Microsoft.Xaml.Behaviors;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Xaml.Interactivity;
 
 namespace MusicTag.App.Behaviors;
 
 /// <summary>
-/// <see cref="DataGrid.SelectedItems"/> is a read-only <see cref="IList"/> proxy onto the
-/// grid's live selection, not a bindable <see cref="DependencyProperty"/> — there is no
-/// built-in way to bind the grid's full multi-selection to a view model. This attached
-/// behavior (via Microsoft.Xaml.Behaviors.Wpf, already referenced since M1 per plan section
-/// 5's "Multi-select plumbing") bridges the gap: it listens to the grid's native
-/// <see cref="DataGrid.SelectionChanged"/> event and mirrors additions/removals into a bound
-/// <see cref="IList"/> — in practice
+/// <see cref="DataGrid.SelectedItems"/> is a read-only <see cref="IList"/> proxy onto the grid's
+/// live selection, not a bindable <see cref="AvaloniaProperty"/> — same limitation as WPF's
+/// DataGrid, and the same fix: this attached behavior (via Avalonia.Xaml.Interactivity) listens
+/// to the grid's native <see cref="DataGrid.SelectionChanged"/> event and mirrors additions/
+/// removals into a bound <see cref="IList"/> — in practice
 /// <c>ObservableCollection&lt;MusicTag.App.ViewModels.FileListItemViewModel&gt;</c> on
 /// <c>MainWindowViewModel</c> — one item at a time, so the view model always reflects exactly
 /// what's currently selected in the grid.
 ///
 /// Deliberately one-directional (grid -> view model): nothing in this app programmatically
 /// drives the grid's selection from the view model. Folder-open/Refresh clears
-/// <c>MainWindowViewModel.Files</c> (the grid's ItemsSource), which the grid itself turns
-/// into a <see cref="DataGrid.SelectionChanged"/> with everything in
+/// <c>MainWindowViewModel.Files</c> (the grid's ItemsSource), which the grid itself turns into a
+/// <see cref="DataGrid.SelectionChanged"/> with everything in
 /// <see cref="SelectionChangedEventArgs.RemovedItems"/> — so the bound collection empties out
 /// through this same path rather than needing an explicit reverse sync.
 /// </summary>
 public sealed class DataGridSelectedItemsBehavior : Behavior<DataGrid>
 {
-    public static readonly DependencyProperty SelectedItemsProperty =
-        DependencyProperty.Register(
-            nameof(SelectedItems),
-            typeof(IList),
-            typeof(DataGridSelectedItemsBehavior),
-            new PropertyMetadata(null));
+    public static readonly StyledProperty<IList?> SelectedItemsProperty =
+        AvaloniaProperty.Register<DataGridSelectedItemsBehavior, IList?>(nameof(SelectedItems));
 
     public IList? SelectedItems
     {
-        get => (IList?)GetValue(SelectedItemsProperty);
+        get => GetValue(SelectedItemsProperty);
         set => SetValue(SelectedItemsProperty, value);
     }
 
     protected override void OnAttached()
     {
         base.OnAttached();
-        AssociatedObject.SelectionChanged += OnSelectionChanged;
+        if (AssociatedObject is not null)
+        {
+            AssociatedObject.SelectionChanged += OnSelectionChanged;
+        }
     }
 
     protected override void OnDetaching()
     {
-        AssociatedObject.SelectionChanged -= OnSelectionChanged;
+        if (AssociatedObject is not null)
+        {
+            AssociatedObject.SelectionChanged -= OnSelectionChanged;
+        }
+
         base.OnDetaching();
     }
 
-    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         var target = SelectedItems;
         if (target is null)

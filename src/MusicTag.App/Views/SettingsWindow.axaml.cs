@@ -1,15 +1,15 @@
+using Avalonia.Controls;
 using MusicTag.App.ViewModels;
-using Wpf.Ui.Controls;
 
 namespace MusicTag.App.Views;
 
 /// <summary>
-/// M7: default startup folder, theme choice, Explorer-integration toggle. Code-behind is thin —
+/// Default startup folder, theme choice, file-manager-integration toggle. Code-behind is thin —
 /// its only job is closing itself when <see cref="SettingsViewModel.RequestClose"/> fires (Save
-/// or Cancel), the same "view model owns behavior, code-behind just bridges to WPF" split used
-/// throughout the rest of the app.
+/// or Cancel), the same "view model owns behavior, code-behind just bridges to the UI framework"
+/// split used throughout the rest of the app.
 /// </summary>
-public partial class SettingsWindow : FluentWindow
+public partial class SettingsWindow : Window
 {
     private readonly SettingsViewModel _viewModel;
 

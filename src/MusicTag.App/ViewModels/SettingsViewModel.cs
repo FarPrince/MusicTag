@@ -134,9 +134,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private string? selectedLyricsSearchDirectory;
 
     [RelayCommand]
-    private void AddLyricsSearchDirectory()
+    private async Task AddLyricsSearchDirectory()
     {
-        var folder = _filePickerService.PickFolder(null);
+        var folder = await _filePickerService.PickFolderAsync(null);
         if (folder is not null && !LyricsSearchDirectories.Contains(folder))
         {
             LyricsSearchDirectories.Add(folder);
@@ -157,9 +157,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnSelectedLyricsSearchDirectoryChanged(string? value) => RemoveLyricsSearchDirectoryCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
-    private void BrowseDefaultFolder()
+    private async Task BrowseDefaultFolder()
     {
-        var folder = _filePickerService.PickFolder(DefaultStartupFolder);
+        var folder = await _filePickerService.PickFolderAsync(DefaultStartupFolder);
         if (folder is not null)
         {
             DefaultStartupFolder = folder;
@@ -177,7 +177,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// partial failure (some keys written, some not) is reflected as accurately as
     /// IsRegistered() can tell, rather than assumed to have fully succeeded or fully failed.</summary>
     [RelayCommand]
-    private void ToggleExplorerIntegration()
+    private async Task ToggleExplorerIntegration()
     {
         try
         {
@@ -192,14 +192,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            _dialogService.ShowError("Explorer Integration", ex.Message);
+            await _dialogService.ShowErrorAsync("File Manager Integration", ex.Message);
         }
 
         ExplorerIntegrationRegistered = _explorerIntegrationService.IsRegistered();
     }
 
     [RelayCommand]
-    private void Save()
+    private async Task Save()
     {
         // Reload-then-mutate rather than serializing this view model's own snapshot straight
         // out, so a setting this window never exposed (none currently, but a future one) isn't
@@ -227,10 +227,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Matches MainWindow.xaml.cs's OnClosing guard around the identical call — a
+            // Matches MainWindow.axaml.cs's OnClosing guard around the identical call — a
             // settings-save failure (locked file, full disk) must not crash the app over
             // what's otherwise just a "couldn't persist this" report.
-            _dialogService.ShowError("Couldn't Save Settings", ex.Message);
+            await _dialogService.ShowErrorAsync("Couldn't Save Settings", ex.Message);
             return;
         }
 

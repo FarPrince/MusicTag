@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MusicTag
+Comment=Edit audio file tags
+Exec=musictag %f
+Icon=musictag
+Terminal=false
+Categories=AudioVideo;Audio;
+MimeType=inode/directory;
+StartupWMClass=MusicTag

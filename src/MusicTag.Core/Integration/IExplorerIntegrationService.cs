@@ -1,9 +1,12 @@
 namespace MusicTag.Core.Integration;
 
 /// <summary>
-/// Registers/unregisters the "Open with MusicTag" right-click entries under HKCU, per plan
-/// section 7 — exposed as the Register/Unregister toggle in Settings. No elevation is required
-/// since everything lives under <c>HKEY_CURRENT_USER</c>.
+/// Registers/unregisters an "Open with MusicTag" right-click entry for a folder — exposed as
+/// the Register/Unregister toggle in Settings. Two implementations, chosen at DI registration
+/// time by the running OS: <see cref="ExplorerIntegrationService"/> (Windows, HKCU registry) and
+/// <see cref="LinuxFileManagerIntegrationService"/> (Linux, a per-user <c>.desktop</c> entry plus
+/// a Nautilus script). No elevation is required for either — both live entirely under the
+/// current user's own profile.
 /// </summary>
 public interface IExplorerIntegrationService
 {

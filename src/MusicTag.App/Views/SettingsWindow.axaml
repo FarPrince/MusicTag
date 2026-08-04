@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        mc:Ignorable="d"
+        x:Class="MusicTag.App.Views.SettingsWindow"
+        Title="Settings" Width="480" Height="560"
+        MinWidth="420" MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+                <TextBlock Text="Default startup folder" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                           Text="Opened automatically on launch when MusicTag isn't started from the file manager's right-click menu. Leave blank to start with the Open Folder prompt." />
+                <DockPanel Margin="0,0,0,16">
+                    <Button Content="Browse…" DockPanel.Dock="Right" Margin="8,0,0,0"
+                            Command="{Binding BrowseDefaultFolderCommand}" />
+                    <TextBox Text="{Binding DefaultStartupFolder, UpdateSourceTrigger=PropertyChanged}"
+                             Watermark="(none)" />
+                </DockPanel>
+
+                <TextBlock Text="Theme" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                           Text="Applies instantly. &quot;System&quot; follows the OS light/dark setting, including while the app stays open." />
+                <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}"
+                          Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+                <TextBlock Text="Window backdrop" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                           Text="Applies instantly. Acrylic is a see-through blur; Mica is a subtler, near-opaque material. Support for either varies across Linux desktop compositors — an unsupported one falls back to a plain solid window." />
+                <ComboBox ItemsSource="{Binding BackdropOptions}" SelectedItem="{Binding Backdrop}"
+                          Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+                <TextBlock Text="File manager integration" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"
+                           Text="Adds &quot;Open with MusicTag&quot; for folders — on Windows, the Explorer right-click menu; on Linux, the Nautilus (GNOME Files) right-click Scripts menu and the file manager's &quot;Open With&quot; list." />
+                <Button Command="{Binding ToggleExplorerIntegrationCommand}" HorizontalAlignment="Left">
+                    <Panel>
+                        <TextBlock Text="Register File Manager Integration" IsVisible="{Binding !ExplorerIntegrationRegistered}" />
+                        <TextBlock Text="Unregister File Manager Integration" IsVisible="{Binding ExplorerIntegrationRegistered}" />
+                    </Panel>
+                </Button>
+
+                <!-- Which fields the toolbar's "Normalize Separators" button rewrites
+                     ";"-separated values in. Title/Album/Comment start unchecked (see
+                     AppSettings.SeparatorNormalizationFields). -->
+                <TextBlock Text="Separator Normalization" FontWeight="SemiBold" Margin="0,16,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"
+                           Text="Fields the toolbar's &quot;Normalize Separators&quot; button rewrites — turns ';'-separated values (e.g. &quot;Rock;Pop&quot;) into ', '-separated ones." />
+                <WrapPanel>
+                    <CheckBox Content="Title" IsChecked="{Binding TitleSeparatorEnabled}" Margin="0,0,16,8" />
+                    <CheckBox Content="Album" IsChecked="{Binding AlbumSeparatorEnabled}" Margin="0,0,16,8" />
+                    <CheckBox Content="Artist" IsChecked="{Binding ArtistSeparatorEnabled}" Margin="0,0,16,8" />
+                    <CheckBox Content="Album Artist" IsChecked="{Binding AlbumArtistSeparatorEnabled}" Margin="0,0,16,8" />
+                    <CheckBox Content="Comment" IsChecked="{Binding CommentSeparatorEnabled}" Margin="0,0,16,8" />
+                    <CheckBox Content="Composer" IsChecked="{Binding ComposerSeparatorEnabled}" Margin="0,0,16,8" />
+                    <CheckBox Content="Genre" IsChecked="{Binding GenreSeparatorEnabled}" Margin="0,0,16,8" />
+                </WrapPanel>
+
+                <!-- Directories the toolbar's "Search Lyrics" button scans recursively for
+                     songs missing a sidecar .lrc file. -->
+                <TextBlock Text="Lyrics (LRCLib)" FontWeight="SemiBold" Margin="0,16,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"
+                           Text="Directories the toolbar's &quot;Search Lyrics&quot; button scans (including subfolders) for songs with no .lrc file yet, downloading synced lyrics from LRCLib where a match is found." />
+                <ListBox ItemsSource="{Binding LyricsSearchDirectories}"
+                         SelectedItem="{Binding SelectedLyricsSearchDirectory}"
+                         Height="90" Margin="0,0,0,8" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Button Content="Add Directory…" Command="{Binding AddLyricsSearchDirectoryCommand}" />
+                    <Button Content="Remove Selected" Command="{Binding RemoveLyricsSearchDirectoryCommand}" Margin="8,0,0,0" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
+            <Button Content="Cancel" Margin="0,0,8,0" Command="{Binding CancelCommand}" />
+            <Button Content="Save" Classes="accent" Command="{Binding SaveCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>
