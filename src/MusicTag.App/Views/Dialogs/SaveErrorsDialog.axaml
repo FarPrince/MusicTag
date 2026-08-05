@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        mc:Ignorable="d"
+        x:Class="MusicTag.App.Views.Dialogs.SaveErrorsDialog"
+        Title="Save Errors" Width="480" Height="360"
+        MinWidth="360" MinHeight="240"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Row="0" Margin="16,16,16,8"
+                   TextWrapping="Wrap"
+                   Text="The following files could not be saved. Other files in the batch were saved successfully." />
+
+        <ListBox Grid.Row="1" Margin="16,0,16,8" ItemsSource="{Binding Failures}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="0,4">
+                        <TextBlock Text="{Binding FileName}" FontWeight="Bold" />
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Opacity="0.8" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Button Grid.Row="2" Content="Close" HorizontalAlignment="Right" Margin="16" Click="OnCloseClick" />
+    </Grid>
+</Window>

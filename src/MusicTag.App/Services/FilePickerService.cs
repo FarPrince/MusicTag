@@ -1,100 +1,97 @@
 using System.IO;
-using Microsoft.Win32;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 
 namespace MusicTag.App.Services;
 
 /// <summary>
-/// Folder picker. Primary path is the newer .NET 8 WPF-native
-/// <see cref="Microsoft.Win32.OpenFolderDialog"/> (a modern common-item-dialog folder
-/// picker with no WinForms dependency); if that throws for any reason (this was flagged as
-/// an open risk in the plan — it's a newer API), falls back to the WinForms
-/// <see cref="System.Windows.Forms.FolderBrowserDialog"/>, which has been stable for
-/// decades. Both are exercised through this one seam so a future milestone (or a bug
-/// report from a specific Windows version) only needs to change this file.
+/// Folder/file picker backed by Avalonia's cross-platform <see cref="IStorageProvider"/> — the
+/// one picker mechanism for every platform this app targets (native GTK/portal chooser on
+/// Linux, native common-item dialog on Windows). Resolved from the app's current main window on
+/// every call (rather than injected/cached at construction) since <see cref="FilePickerService"/>
+/// is a DI singleton built before the main window exists.
 /// </summary>
 public sealed class FilePickerService : IFilePickerService
 {
-    public string? PickFolder(string? initialDirectory = null)
+    private static readonly FilePickerFileType ImageFileType = new("Image files")
     {
+        Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif"],
+    };
+
+    private static readonly FilePickerFileType PngFileType = new("PNG image") { Patterns = ["*.png"] };
+    private static readonly FilePickerFileType JpegFileType = new("JPEG image") { Patterns = ["*.jpg"] };
+    private static readonly FilePickerFileType BmpFileType = new("Bitmap image") { Patterns = ["*.bmp"] };
+    private static readonly FilePickerFileType GifFileType = new("GIF image") { Patterns = ["*.gif"] };
+
+    private static IStorageProvider? StorageProvider =>
+        (global::Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow?.StorageProvider;
+
+    public async Task<string?> PickFolderAsync(string? initialDirectory = null)
+    {
+        var provider = StorageProvider;
+        if (provider is null)
+            return null;
+
+        var options = new FolderPickerOpenOptions
+        {
+            Title = "Open Folder",
+            AllowMultiple = false,
+            SuggestedStartLocation = await ResolveStartLocationAsync(provider, initialDirectory),
+        };
+
+        var result = await provider.OpenFolderPickerAsync(options);
+        return result.Count > 0 ? result[0].Path.LocalPath : null;
+    }
+
+    public async Task<string?> PickImageFileAsync()
+    {
+        var provider = StorageProvider;
+        if (provider is null)
+            return null;
+
+        var result = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Select Album Art",
+            AllowMultiple = false,
+            FileTypeFilter = [ImageFileType, FilePickerFileTypes.All],
+        });
+
+        return result.Count > 0 ? result[0].Path.LocalPath : null;
+    }
+
+    /// <summary><paramref name="suggestedFileName"/> already carries the correct extension for
+    /// the art's sniffed format (see AlbumArtViewModel.Extract), so
+    /// <see cref="FilePickerSaveOptions.DefaultExtension"/> is left unset rather than forcing
+    /// one.</summary>
+    public async Task<string?> PickSaveImageFileAsync(string suggestedFileName)
+    {
+        var provider = StorageProvider;
+        if (provider is null)
+            return null;
+
+        var result = await provider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Extract Album Art",
+            SuggestedFileName = suggestedFileName,
+            FileTypeChoices = [PngFileType, JpegFileType, BmpFileType, GifFileType, FilePickerFileTypes.All],
+        });
+
+        return result?.Path.LocalPath;
+    }
+
+    private static async Task<IStorageFolder?> ResolveStartLocationAsync(IStorageProvider provider, string? initialDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(initialDirectory) || !Directory.Exists(initialDirectory))
+            return null;
+
         try
         {
-            return PickFolderWithOpenFolderDialog(initialDirectory);
+            return await provider.TryGetFolderFromPathAsync(initialDirectory);
         }
         catch (Exception)
         {
-            return PickFolderWithWinFormsFallback(initialDirectory);
+            return null;
         }
-    }
-
-    private static string? PickFolderWithOpenFolderDialog(string? initialDirectory)
-    {
-        var dialog = new OpenFolderDialog
-        {
-            Title = "Open Folder",
-            Multiselect = false,
-        };
-
-        if (!string.IsNullOrWhiteSpace(initialDirectory) && Directory.Exists(initialDirectory))
-        {
-            dialog.InitialDirectory = initialDirectory;
-        }
-
-        return dialog.ShowDialog() == true ? dialog.FolderName : null;
-    }
-
-    private static string? PickFolderWithWinFormsFallback(string? initialDirectory)
-    {
-        using var dialog = new System.Windows.Forms.FolderBrowserDialog
-        {
-            Description = "Open Folder",
-            UseDescriptionForTitle = true,
-        };
-
-        if (!string.IsNullOrWhiteSpace(initialDirectory) && Directory.Exists(initialDirectory))
-        {
-            dialog.SelectedPath = initialDirectory;
-        }
-
-        return dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK ? dialog.SelectedPath : null;
-    }
-
-    /// <summary>
-    /// M6: uses the same WPF-native <see cref="Microsoft.Win32"/> dialog family as
-    /// <see cref="PickFolder"/> (fully-qualified here — MusicTag.App also references
-    /// WinForms for the folder-picker fallback above, and
-    /// <c>System.Windows.Forms.OpenFileDialog</c> shares the bare name "OpenFileDialog",
-    /// so an unqualified reference would be ambiguous). No WinForms fallback is needed
-    /// here (unlike the folder picker) since Microsoft.Win32.OpenFileDialog has been
-    /// stable since .NET Framework — only the folder-picker equivalent was flagged as a
-    /// newer, unverified API in the plan (risk #4).
-    /// </summary>
-    public string? PickImageFile()
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "Select Album Art",
-            Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.bmp;*.gif|All files (*.*)|*.*",
-            Multiselect = false,
-            CheckFileExists = true,
-        };
-
-        return dialog.ShowDialog() == true ? dialog.FileName : null;
-    }
-
-    /// <summary>Per user feedback ("provide an option to extract album art as an image") —
-    /// same <see cref="Microsoft.Win32.SaveFileDialog"/> family as the rest of this class.
-    /// <paramref name="suggestedFileName"/> already carries the correct extension for the
-    /// art's sniffed format (see AlbumArtViewModel.Extract), so AddExtension is left at its
-    /// default rather than forcing one.</summary>
-    public string? PickSaveImageFile(string suggestedFileName)
-    {
-        var dialog = new Microsoft.Win32.SaveFileDialog
-        {
-            Title = "Extract Album Art",
-            FileName = suggestedFileName,
-            Filter = "PNG image (*.png)|*.png|JPEG image (*.jpg)|*.jpg|Bitmap image (*.bmp)|*.bmp|GIF image (*.gif)|*.gif|All files (*.*)|*.*",
-        };
-
-        return dialog.ShowDialog() == true ? dialog.FileName : null;
     }
 }

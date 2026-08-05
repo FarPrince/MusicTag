@@ -1,0 +1,19 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:styling="using:FluentAvalonia.Styling"
+             x:Class="MusicTag.App.App"
+             RequestedThemeVariant="Dark">
+    <!-- RequestedThemeVariant="Dark" here is only ever the initial placeholder value parsed at
+         XAML-load time — App.OnFrameworkInitializationCompleted immediately calls
+         IThemeService.ApplyTheme(settings.Theme) before the main window is shown, which swaps
+         it for whichever of System/Light/Dark is persisted (mirrors the WPF original's
+         Application.Resources ui:ThemesDictionary placeholder-Theme comment). -->
+    <Application.Styles>
+        <!-- FluentAvaloniaTheme in place of WPF-UI's ui:ThemesDictionary/ui:ControlsDictionary —
+             both are WinUI2-resource-dictionary-shaped, so the same brush keys used throughout
+             this app's XAML (ControlFillColorSecondaryBrush, SystemAccentColorPrimaryBrush,
+             TextFillColorPrimaryBrush, ControlElevationBorderBrush, ...) resolve unchanged. -->
+        <styling:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    </Application.Styles>
+</Application>

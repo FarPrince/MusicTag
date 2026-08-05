@@ -1,0 +1,103 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:conv="clr-namespace:MusicTag.App.Converters"
+             mc:Ignorable="d"
+             x:Class="MusicTag.App.Views.EditPanelView"
+             d:DesignWidth="340"
+             IsEnabled="{Binding IsEnabled}">
+
+    <!--
+        Every TextBox below defaults to UpdateSourceTrigger=LostFocus, matching the "commit on
+        focus-lost/Enter" design; Enter is handled in code-behind (OnKeyDown) since Enter alone
+        doesn't move focus. Comment is a single line like every other field here, consistent
+        with the grid's own single-line Comment column.
+
+        Each field's Watermark is bound to that field's *Mixed companion property (a
+        MixedValue<T> snapshot — see EditPanelViewModel) via MixedValuePlaceholderConverter,
+        which resolves to "<keep>" only when the selection disagrees on that field and to
+        nothing otherwise — so a single selection (or a unanimous multi-selection) looks exactly
+        like a plain field, and an untouched mixed field simply shows the hint instead of a real
+        value (Text itself is null/blank whenever mixed, per
+        EditPanelViewModel.RefreshFieldsFromSelection).
+    -->
+    <UserControl.Resources>
+        <conv:NullableIntToStringConverter x:Key="NullableIntConverter" />
+        <conv:MixedValuePlaceholderConverter x:Key="MixedValuePlaceholderConverter" />
+    </UserControl.Resources>
+
+    <StackPanel Margin="12">
+        <!-- Filename is never editable from this panel (renaming is exclusively the inline
+             grid action — F2 or double-click a Filename cell) — this hint only ever appears to
+             explain why, and only while >1 file is selected. -->
+        <Border IsVisible="{Binding IsMultiSelection}"
+                Margin="0,0,0,12" Padding="8" CornerRadius="4"
+                Background="{DynamicResource ControlFillColorSecondaryBrush}">
+            <TextBlock Text="Renaming isn't available for multiple files here — use F2 or double-click a Filename cell in the grid to rename one file at a time."
+                       TextWrapping="Wrap" Opacity="0.8" FontSize="11" />
+        </Border>
+
+        <TextBlock Text="Title" Margin="0,0,0,2" />
+        <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding TitleMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <TextBlock Text="Artist" Margin="0,0,0,2" />
+        <TextBox x:Name="ArtistBox" Text="{Binding Artist, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding ArtistMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <TextBlock Text="Album" Margin="0,0,0,2" />
+        <TextBox x:Name="AlbumBox" Text="{Binding Album, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding AlbumMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <TextBlock Text="Album Artist" Margin="0,0,0,2" />
+        <TextBox x:Name="AlbumArtistBox" Text="{Binding AlbumArtist, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding AlbumArtistMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <Grid ColumnDefinitions="*,12,*" Margin="0,0,0,8">
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Track #" Margin="0,0,0,2" />
+                <TextBox x:Name="TrackNumberBox" Text="{Binding TrackNumber, Converter={StaticResource NullableIntConverter}, UpdateSourceTrigger=LostFocus}"
+                         Watermark="{Binding TrackNumberMixed, Converter={StaticResource MixedValuePlaceholderConverter}}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Disc #" Margin="0,0,0,2" />
+                <TextBox x:Name="DiscNumberBox" Text="{Binding DiscNumber, Converter={StaticResource NullableIntConverter}, UpdateSourceTrigger=LostFocus}"
+                         Watermark="{Binding DiscNumberMixed, Converter={StaticResource MixedValuePlaceholderConverter}}" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Year" Margin="0,0,0,2" />
+        <TextBox x:Name="YearBox" Text="{Binding Year, Converter={StaticResource NullableIntConverter}, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding YearMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <TextBlock Text="Genre" Margin="0,0,0,2" />
+        <TextBox x:Name="GenreBox" Text="{Binding Genre, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding GenreMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <TextBlock Text="Composer" Margin="0,0,0,2" />
+        <TextBox x:Name="ComposerBox" Text="{Binding Composer, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding ComposerMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <TextBlock Text="Comment" Margin="0,0,0,2" />
+        <TextBox x:Name="CommentBox" Text="{Binding Comment, UpdateSourceTrigger=LostFocus}"
+                 Watermark="{Binding CommentMixed, Converter={StaticResource MixedValuePlaceholderConverter}}"
+                 Margin="0,0,0,8" />
+
+        <!-- Read-only technical metadata (bitrate/sample rate/codec/channels/file size/tag
+             formats/last modified), backed by AudioFile.ExtendedInfo. Only shown for a single
+             selected file. -->
+        <TextBlock IsVisible="{Binding IsExtendedInfoVisible}"
+                   Text="{Binding ExtendedInfoSummary}"
+                   HorizontalAlignment="Center" TextAlignment="Center"
+                   Margin="0,4,0,0" Opacity="0.8" FontSize="12" />
+    </StackPanel>
+</UserControl>

@@ -1,54 +1,20 @@
-<ui:FluentWindow x:Class="MusicTag.App.Views.ShortcutsReferenceWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
-        Title="Keyboard Shortcuts" Height="460" Width="420"
-        MinHeight="360" MinWidth="360"
-        ExtendsContentIntoTitleBar="True"
-        WindowBackdropType="Acrylic"
+        x:Class="MusicTag.App.Views.ShortcutsReferenceWindow"
+        Title="Keyboard Shortcuts" Width="420" Height="460"
+        MinWidth="360" MinHeight="360"
         WindowStartupLocation="CenterOwner">
 
-    <!--
-        M8, plan section 8 (Help menu -> "Keyboard Shortcuts"): a simple static reference — no
-        view model, since this window has no state of its own, just a fixed list matching every
-        KeyBinding actually wired in MainWindow.xaml/EditPanelView.xaml/
-        ClipboardPasteImageBehavior. Kept as a plain two-column Grid rather than a DataGrid/
-        ItemsControl-over-a-collection, since the list is short, fixed at compile time, and
-        never needs to be data-bound or reordered at runtime.
-    -->
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <ui:TitleBar Grid.Row="0" Title="Keyboard Shortcuts" />
-
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="20,12,20,12">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="140" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                    </Grid.RowDefinitions>
-
+    <!-- A simple static reference — no view model, since this window has no state of its own,
+         just a fixed list matching every shortcut actually wired in MainWindow.axaml/
+         EditPanelView.axaml/ClipboardPasteImageBehavior. -->
+    <Grid RowDefinitions="*,Auto">
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20,16,20,12">
+                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                     <!-- File / general -->
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl+O" FontWeight="SemiBold" Margin="0,0,0,10" />
                     <TextBlock Grid.Row="0" Grid.Column="1" Text="Open a folder" Margin="0,0,0,10" TextWrapping="Wrap" />
@@ -88,8 +54,8 @@
             </StackPanel>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
-            <ui:Button Content="Close" Appearance="Primary" Click="OnCloseClick" />
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16">
+            <Button Content="Close" Classes="accent" Click="OnCloseClick" />
         </StackPanel>
     </Grid>
-</ui:FluentWindow>
+</Window>

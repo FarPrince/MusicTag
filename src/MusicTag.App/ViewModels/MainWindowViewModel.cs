@@ -160,7 +160,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenFolder()
     {
-        var folder = _filePickerService.PickFolder(CurrentFolderPath);
+        var folder = await _filePickerService.PickFolderAsync(CurrentFolderPath);
         if (folder is null)
             return;
 
@@ -168,7 +168,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // does — same discard-confirmation + EditHistory.Clear() requirement per plan
         // section 4 ("old commands hold direct references to AudioFile instances that get
         // discarded/replaced on rescan").
-        if (!ConfirmDiscardIfDirty())
+        if (!await ConfirmDiscardIfDirtyAsync())
             return;
 
         await LoadFolderAsync(folder);
@@ -180,7 +180,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (CurrentFolderPath is null)
             return;
 
-        if (!ConfirmDiscardIfDirty())
+        if (!await ConfirmDiscardIfDirtyAsync())
             return;
 
         await LoadFolderAsync(CurrentFolderPath);
@@ -188,13 +188,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private bool CanRefresh() => CurrentFolderPath is not null && Directory.Exists(CurrentFolderPath);
 
-    /// <summary>M7: opens the modal Settings window (default startup folder, theme choice,
-    /// Explorer-integration toggle). No discard-confirmation dance here — Settings doesn't
-    /// touch the currently open folder's files at all.</summary>
+    /// <summary>Opens the modal Settings window (default startup folder, theme choice, file-
+    /// manager-integration toggle). No discard-confirmation dance here — Settings doesn't touch
+    /// the currently open folder's files at all.</summary>
     [RelayCommand]
-    private void OpenSettings() => _dialogService.ShowSettings();
+    private async Task OpenSettings() => await _dialogService.ShowSettingsAsync();
 
-    /// <summary>M8: Help menu → "Keyboard Shortcuts" — shows the static reference window.</summary>
+    /// <summary>Toolbar's "Keyboard Shortcuts" button — shows the static reference window.</summary>
     [RelayCommand]
     private void ShowShortcuts() => _dialogService.ShowShortcutsReference();
 
@@ -247,18 +247,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <see cref="LyricsSearchDialogViewModel"/> — this method is just validating there's
     /// something configured to search before opening it.</summary>
     [RelayCommand]
-    private void SearchLyrics()
+    private async Task SearchLyrics()
     {
         var directories = _settingsService.Load().LyricsSearchDirectories;
         if (directories.Count == 0)
         {
-            _dialogService.ShowInfo(
+            await _dialogService.ShowInfoAsync(
                 "Search Lyrics",
                 "No directories configured yet — add at least one under Settings → Lyrics (LRCLib).");
             return;
         }
 
-        _dialogService.ShowLyricsSearchDialog(directories);
+        await _dialogService.ShowLyricsSearchDialogAsync(directories);
     }
 
     /// <summary>M7: called once from App.OnStartup when a startup folder was resolved from a
@@ -275,11 +275,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// file created/renamed since) surfaces via RenameErrorDialog instead of corrupting the
     /// stacks or silently no-op'ing.</summary>
     [RelayCommand(CanExecute = nameof(CanUndo))]
-    private void Undo()
+    private async Task Undo()
     {
         if (!_editHistory.TryUndo(out var error))
         {
-            _dialogService.ShowRenameError(error!.Message);
+            await _dialogService.ShowRenameErrorAsync(error!.Message);
         }
     }
 
@@ -287,11 +287,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>Ctrl+Y — see <see cref="Undo"/> doc comment for the same TryRedo caveat.</summary>
     [RelayCommand(CanExecute = nameof(CanRedo))]
-    private void Redo()
+    private async Task Redo()
     {
         if (!_editHistory.TryRedo(out var error))
         {
-            _dialogService.ShowRenameError(error!.Message);
+            await _dialogService.ShowRenameErrorAsync(error!.Message);
         }
     }
 
@@ -305,7 +305,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// "revert" step since a failed <see cref="IAudioFileService.Rename"/> call never mutates
     /// <see cref="MusicTag.Core.Models.AudioFile.FileName"/> — the grid cell (bound to it) is
     /// already showing the unchanged name.</summary>
-    public void RenameFileInline(FileListItemViewModel item, string newFileName)
+    public async Task RenameFileInlineAsync(FileListItemViewModel item, string newFileName)
     {
         var file = item.AudioFile;
         var before = file.FileName;
@@ -320,19 +320,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (!_editHistory.TryExecute(command, out var error))
         {
-            _dialogService.ShowRenameError(error!.Message);
+            await _dialogService.ShowRenameErrorAsync(error!.Message);
         }
     }
 
-    /// <summary>Per plan section 4: Refresh/folder-open must check for any dirty file first
-    /// and show a discard-confirmation dialog before proceeding; returns true immediately
-    /// (no dialog) when nothing is dirty.</summary>
-    private bool ConfirmDiscardIfDirty()
+    /// <summary>Refresh/folder-open must check for any dirty file first and show a discard-
+    /// confirmation dialog before proceeding; returns true immediately (no dialog) when nothing
+    /// is dirty.</summary>
+    private async Task<bool> ConfirmDiscardIfDirtyAsync()
     {
         if (!Files.Any(f => f.AudioFile.IsDirty))
             return true;
 
-        return _dialogService.ConfirmDiscardChanges();
+        return await _dialogService.ConfirmDiscardChangesAsync();
     }
 
     /// <summary>Every commit (field edit, album-art edit, rename, undo, or redo) fires
@@ -376,7 +376,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             if (result.Failed.Count > 0)
             {
-                _dialogService.ShowSaveErrors(result.Failed);
+                await _dialogService.ShowSaveErrorsAsync(result.Failed);
             }
         }
         finally
@@ -445,7 +445,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _dialogService.ShowError("Couldn't Open Folder", $"Couldn't read \"{folderPath}\":\n{ex.Message}");
+            await _dialogService.ShowErrorAsync("Couldn't Open Folder", $"Couldn't read \"{folderPath}\":\n{ex.Message}");
             RecomputePendingChangesCount();
             return;
         }

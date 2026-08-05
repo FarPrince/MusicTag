@@ -1,8 +1,9 @@
-; MusicTag installer (Inno Setup 6). Builds a self-contained, no-admin-required installer:
-; Start Menu shortcut (always), an optional Desktop shortcut (Tasks checkbox), and registers/
-; unregisters the Explorer "Open with MusicTag" context-menu entries via the app's own
-; --register-explorer/--unregister-explorer CLI flags (see App.xaml.cs) rather than duplicating
-; that HKCU registry-write logic here.
+; MusicTag installer (Inno Setup 6) — Windows only; see installer/fedora/musictag.spec for the
+; Linux/Fedora RPM equivalent. Builds a self-contained, no-admin-required installer: Start Menu
+; shortcut (always), an optional Desktop shortcut (Tasks checkbox), and registers/unregisters
+; the Explorer "Open with MusicTag" context-menu entries via the app's own
+; --register-file-manager/--unregister-file-manager CLI flags (see Program.cs) rather than
+; duplicating that HKCU registry-write logic here.
 ;
 ; Build: publish first, then compile this script:
 ;   dotnet publish ..\src\MusicTag.App -c Release -r win-x64 --self-contained true ^
@@ -14,7 +15,7 @@
 #define MyAppPublisher "FarPrince"
 #define MyAppURL "https://github.com/FarPrince/MP3Tag"
 #define MyAppExeName "MusicTag.exe"
-#define PublishDir "..\src\MusicTag.App\bin\Release\net8.0-windows\win-x64\publish"
+#define PublishDir "..\src\MusicTag.App\bin\Release\net8.0\win-x64\publish"
 
 [Setup]
 ; Fixed, permanent identity for this app across versions/updates — do not regenerate.
@@ -58,10 +59,10 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--register-explorer"; Flags: runhidden waituntilterminated; StatusMsg: "Registering Explorer context menu entries..."
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--register-file-manager"; Flags: runhidden waituntilterminated; StatusMsg: "Registering Explorer context menu entries..."
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 ; Runs before Inno removes the app's files, while MusicTag.exe still exists on disk —
 ; cleans up the HKCU context-menu entries the [Run] step above added.
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--unregister-explorer"; Flags: runhidden waituntilterminated; RunOnceId: "UnregisterExplorer"
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--unregister-file-manager"; Flags: runhidden waituntilterminated; RunOnceId: "UnregisterExplorer"

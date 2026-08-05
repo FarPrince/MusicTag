@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:i="using:Avalonia.Xaml.Interactivity"
+             xmlns:behaviors="clr-namespace:MusicTag.App.Behaviors"
+             mc:Ignorable="d"
+             x:Class="MusicTag.App.Controls.AlbumArtControl"
+             x:Name="Root"
+             Focusable="True"
+             d:DesignHeight="260" d:DesignWidth="220">
+
+    <!--
+        Single selection shows that file's art with working Replace (file-picker)/Remove;
+        multi-selection shows either the common art (all agree, via AlbumArtViewModel's
+        byte-equality comparison) or the "multiple different images" placeholder below when
+        IsMixed. Ctrl+V paste (ClipboardPasteImageBehavior) and drag-drop (this control's own
+        code-behind Drop handler) both funnel into the same ApplyImageBytesCommand as Replace,
+        so every input source produces the identical all-or-nothing batch-apply
+        CompositeEditCommand.
+
+        Replace/Copy/Paste/Extract/Remove are a right-click context menu (see code-behind's
+        OnPointerReleased), matching the same "build a ContextMenu in code" pattern MainWindow's
+        column chooser uses.
+
+        Kept "dumb": every property here is set explicitly at the usage site (MainWindow.axaml)
+        rather than the control inheriting AlbumArtViewModel as its own DataContext, so it stays
+        plain-old-Avalonia-control-shaped and independent of any specific view model type.
+        Internal bindings therefore target ElementName=Root (this control's own properties), not
+        an inherited DataContext.
+    -->
+    <Interaction.Behaviors>
+        <behaviors:ClipboardPasteImageBehavior PasteImageCommand="{Binding ApplyImageBytesCommand, ElementName=Root}" />
+    </Interaction.Behaviors>
+
+    <StackPanel>
+        <!-- Album art should be seen in the standard square ratio — a fixed size (rather than
+             binding Width to ActualHeight or similar) keeps the preview a predictable, real
+             square regardless of how the user has resized the GridSplitter/column. -->
+        <Border Width="200" Height="200"
+                HorizontalAlignment="Center"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Background="{DynamicResource ControlFillColorDefaultBrush}">
+            <Grid>
+                <Image x:Name="ArtImage" Stretch="Uniform" Margin="4" IsVisible="False" />
+                <TextBlock x:Name="Placeholder"
+                           Text="No Album Art"
+                           Opacity="0.6"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="True" />
+                <TextBlock x:Name="MixedPlaceholder"
+                           Text="Multiple different images"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Margin="12"
+                           Opacity="0.7"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="False" />
+            </Grid>
+        </Border>
+
+        <TextBlock x:Name="DetailsText"
+                   Text="{Binding ArtDetails, ElementName=Root}"
+                   HorizontalAlignment="Center" TextAlignment="Center"
+                   Margin="0,8,0,0" Opacity="0.8" FontSize="12" />
+    </StackPanel>
+</UserControl>

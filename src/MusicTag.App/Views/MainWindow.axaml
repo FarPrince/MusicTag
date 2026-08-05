@@ -1,0 +1,202 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:MusicTag.App.ViewModels"
+        xmlns:views="clr-namespace:MusicTag.App.Views"
+        xmlns:controls="clr-namespace:MusicTag.App.Controls"
+        xmlns:conv="clr-namespace:MusicTag.App.Converters"
+        xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:behaviors="clr-namespace:MusicTag.App.Behaviors"
+        mc:Ignorable="d"
+        x:Class="MusicTag.App.Views.MainWindow"
+        Title="MusicTag" Width="1000" Height="600"
+        MinWidth="700" MinHeight="400"
+        Icon="/Assets/logo.png"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToCollapsedConverter" />
+        <conv:NullableIntToStringConverter x:Key="NullableIntConverter" />
+        <conv:BoolToFontStyleConverter x:Key="BoolToFontStyleConverter" />
+    </Window.Resources>
+
+    <!-- Ctrl+O/Ctrl+S/Ctrl+Z/Ctrl+Y/F5 bind straight to MainWindowViewModel commands, same as
+         the WPF original's Window.InputBindings. F2 (rename) and Ctrl+A (select-all-in-grid)
+         need a real DataGrid instance method (BeginEdit/SelectAll) with no view-model-friendly
+         command equivalent — handled in code-behind's OnKeyDown instead (see MainWindow.axaml.cs
+         doc comment for why that's simpler here than the WPF original's RoutedCommand/
+         CommandBinding indirection).
+         Ctrl+V (paste image into album art) is deliberately NOT here — it's scoped to only when
+         the album art control itself has focus, wired directly on AlbumArtControl via
+         Behaviors.ClipboardPasteImageBehavior instead. -->
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenFolderCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveAllCommand}" />
+        <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
+        <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
+        <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}" />
+    </Window.KeyBindings>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Row 0: toolbar. -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
+            <Button Content="Open Folder" Command="{Binding OpenFolderCommand}" />
+            <Button Content="Save" Command="{Binding SaveAllCommand}" Margin="8,0,0,0"
+                    ToolTip.Tip="Edits already auto-save — this retries any save that previously failed" />
+            <Button Content="Undo" Command="{Binding UndoCommand}" Margin="8,0,0,0" />
+            <Button Content="Redo" Command="{Binding RedoCommand}" Margin="8,0,0,0" />
+            <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="8,0,0,0" />
+            <!-- Replaces ";" separators with ", " across every loaded file in the folder,
+                 restricted to whichever fields Settings enables — one undo step for the whole
+                 folder, same as any other batch edit. -->
+            <Button Content="Normalize Separators" Command="{Binding NormalizeSeparatorsCommand}" Margin="8,0,0,0"
+                    ToolTip.Tip="Replace ';' with ', ' in the fields enabled under Settings" />
+            <!-- Scans the directories configured under Settings -> Lyrics (LRCLib)
+                 (recursively, independent of the folder open in the grid) for songs missing a
+                 sidecar .lrc, downloading synced lyrics from LRCLib. -->
+            <Button Content="Search Lyrics" Command="{Binding SearchLyricsCommand}" Margin="8,0,0,0"
+                    ToolTip.Tip="Download synced lyrics for songs missing an .lrc file" />
+            <Button Content="Settings" Command="{Binding OpenSettingsCommand}" Margin="20,0,0,0" />
+            <Button Content="Keyboard Shortcuts" Command="{Binding ShowShortcutsCommand}" Margin="8,0,0,0" />
+        </StackPanel>
+
+        <!-- Row 1: file grid (left) + GridSplitter + AlbumArtControl/edit panel (right). -->
+        <Grid Grid.Row="1" Margin="12,0,12,8" ColumnDefinitions="*,6,360">
+            <DataGrid x:Name="FileGrid"
+                      Grid.Column="0"
+                      ItemsSource="{Binding Files}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="False"
+                      HeadersVisibility="Column"
+                      SelectionMode="Extended"
+                      GridLinesVisibility="Horizontal"
+                      CellEditEnding="OnFileGridCellEditEnding"
+                      PointerReleased="OnFileGridPointerReleased"
+                      HorizontalScrollBarVisibility="Auto">
+                <!-- DataGrid.SelectedItems is a read-only IList proxy, not a bindable property —
+                     this attached behavior mirrors it into MainWindowViewModel.SelectedFiles one
+                     add/remove at a time, which EditPanelViewModel then rebuilds its whole bound
+                     state from. -->
+                <Interaction.Behaviors>
+                    <behaviors:DataGridSelectedItemsBehavior SelectedItems="{Binding SelectedFiles}" />
+                </Interaction.Behaviors>
+                <!-- Dirty-row visual indicator: the whole row renders italic while its
+                     AudioFile.IsDirty is true — see BoolToFontStyleConverter's own doc comment
+                     for why this is a scoped Style-with-Binding rather than a full custom
+                     DataGridRow ControlTemplate replacement (the WPF original's approach, which
+                     doesn't port cleanly — see MainWindow.axaml.cs). Selection/hover/alternating-
+                     row visuals are left at the FluentAvaloniaTheme DataGrid theme's own
+                     defaults. -->
+                <DataGrid.Styles>
+                    <Style Selector="DataGridRow">
+                        <Setter Property="FontStyle" Value="{Binding AudioFile.IsDirty, Converter={StaticResource BoolToFontStyleConverter}}" />
+                    </Style>
+                </DataGrid.Styles>
+                <DataGrid.Columns>
+                    <!-- The one editable column: F2 or double-click to edit, commit on
+                         Enter/focus-lost via CellEditEnding (code-behind, since inline grid
+                         editing has no clean command-binding hook), which calls
+                         MainWindowViewModel.RenameFileInlineAsync -> EditHistory.TryExecute(new
+                         RenameCommand(...)). The editing TextBox binds FileName OneWay only —
+                         CellEditEnding reads the typed text directly instead of relying on
+                         binding write-back, so a failed rename simply leaves the underlying
+                         FileName untouched and the cell reverts to it automatically once edit
+                         mode exits. -->
+                    <DataGridTemplateColumn Tag="FilenameColumn" Header="Filename" Width="2*" MinWidth="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding FileName}" Padding="4,0" VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding FileName, Mode=OneWay}" Loaded="OnRenameTextBoxLoaded" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
+                    <!-- Title/Artist/Album/Track #/Year/Genre/Comment/Composer/Album Artist/
+                         Disc # are all directly editable in-place (double-click or F2, same as
+                         Filename) — committing pushes a single-file FieldEditCommand through
+                         the shared EditHistory (see FileListItemViewModel.CommitField), which
+                         auto-saves immediately just like an edit made in the side panel.
+                         Every one of these (bar Filename) is also toggleable through the
+                         right-click column chooser (see OnFileGridPointerReleased). MinWidth on
+                         every resizable column keeps a user from squeezing a column to nothing
+                         while widening another. -->
+                    <DataGridTextColumn Tag="TitleColumn" Header="Title" Binding="{Binding Title}" Width="2*" MinWidth="80" />
+                    <DataGridTextColumn Tag="ArtistColumn" Header="Artist" Binding="{Binding Artist}" Width="2*" MinWidth="80" />
+                    <DataGridTextColumn Tag="AlbumColumn" Header="Album" Binding="{Binding Album}" Width="2*" MinWidth="80" />
+                    <DataGridTextColumn Tag="TrackNumberColumn" Header="Track #" Binding="{Binding TrackNumber, Converter={StaticResource NullableIntConverter}}" Width="Auto" MinWidth="60" />
+                    <DataGridTextColumn Tag="YearColumn" Header="Year" Binding="{Binding Year, Converter={StaticResource NullableIntConverter}}" Width="Auto" MinWidth="60" />
+                    <DataGridTextColumn Tag="DurationColumn" Header="Duration" Binding="{Binding Duration}" Width="Auto" MinWidth="70" IsReadOnly="True" />
+
+                    <!-- Hidden by default (the core columns above cover the common case). -->
+                    <DataGridTextColumn Tag="AlbumArtistColumn" Header="Album Artist" Binding="{Binding AlbumArtist}" Width="2*" MinWidth="80" IsVisible="False" />
+                    <DataGridTextColumn Tag="GenreColumn" Header="Genre" Binding="{Binding Genre}" Width="2*" MinWidth="80" IsVisible="False" />
+                    <DataGridTextColumn Tag="ComposerColumn" Header="Composer" Binding="{Binding Composer}" Width="2*" MinWidth="80" IsVisible="False" />
+                    <DataGridTextColumn Tag="CommentColumn" Header="Comment" Binding="{Binding Comment}" Width="2*" MinWidth="80" IsVisible="False" />
+                    <DataGridTextColumn Tag="DiscNumberColumn" Header="Disc #" Binding="{Binding DiscNumber, Converter={StaticResource NullableIntConverter}}" Width="Auto" MinWidth="60" IsVisible="False" />
+
+                    <!-- Technical-info columns — read-only, sourced from FileListItemViewModel's
+                         ExtendedInfo pass-throughs (same data EditPanelView's "Technical Info"
+                         summary already shows for one file at a time; these make it visible
+                         across every row at once). Hidden by default, same column-chooser
+                         treatment as the metadata columns above. -->
+                    <DataGridTextColumn Tag="CodecColumn" Header="Codec" Binding="{Binding Codec}" Width="Auto" MinWidth="70" MaxWidth="120" IsReadOnly="True" IsVisible="False" />
+                    <DataGridTextColumn Tag="BitrateColumn" Header="Bitrate" Binding="{Binding Bitrate}" Width="Auto" MinWidth="70" IsReadOnly="True" IsVisible="False" />
+                    <DataGridTextColumn Tag="SampleRateColumn" Header="Sample Rate" Binding="{Binding SampleRate}" Width="Auto" MinWidth="90" IsReadOnly="True" IsVisible="False" />
+                    <DataGridTextColumn Tag="ChannelsColumn" Header="Channels" Binding="{Binding Channels}" Width="Auto" MinWidth="70" IsReadOnly="True" IsVisible="False" />
+                    <DataGridTextColumn Tag="FileSizeColumn" Header="File Size" Binding="{Binding FileSize}" Width="Auto" MinWidth="70" IsReadOnly="True" IsVisible="False" />
+                    <DataGridTextColumn Tag="TagFormatsColumn" Header="Tag Formats" Binding="{Binding TagFormats}" Width="Auto" MinWidth="90" IsReadOnly="True" IsVisible="False" />
+                    <DataGridTextColumn Tag="ModifiedColumn" Header="Modified" Binding="{Binding Modified}" Width="Auto" MinWidth="120" IsReadOnly="True" IsVisible="False" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent" />
+
+            <Border Grid.Column="2" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource ControlElevationBorderBrush}">
+                <!-- AlbumArtControl and EditPanelView share a single ScrollViewer so the art
+                     scrolls out of view along with the fields below it on a short panel/tall
+                     selection, rather than staying pinned above a separately scrolling
+                     EditPanelView. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- AlbumArtControl's properties are bound explicitly against AlbumArt
+                             (an AlbumArtViewModel) rather than the control adopting it as its
+                             own DataContext — keeps the control "dumb"/reusable;
+                             ApplyImageBytesCommand is the shared sink for Ctrl+V paste and
+                             drag-drop, Replace/RemoveCommand back the two menu entries. -->
+                        <controls:AlbumArtControl Margin="12,12,12,0"
+                                                   ImageBytes="{Binding AlbumArt.ImageBytes}"
+                                                   IsMixed="{Binding AlbumArt.IsMixed}"
+                                                   ReplaceCommand="{Binding AlbumArt.ReplaceCommand}"
+                                                   RemoveCommand="{Binding AlbumArt.RemoveCommand}"
+                                                   ExtractCommand="{Binding AlbumArt.ExtractCommand}"
+                                                   ArtDetails="{Binding AlbumArt.ArtDetails}"
+                                                   ApplyImageBytesCommand="{Binding AlbumArt.ApplyImageBytesCommand}"
+                                                   IsEnabled="{Binding AlbumArt.IsEnabled}" />
+                        <views:EditPanelView DataContext="{Binding EditPanel}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Row 2: status bar. Undo-stack description only shown when non-null (i.e. the undo
+             stack isn't empty). -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="12,0,12,8">
+            <TextBlock Text="{Binding CurrentFolderPath, TargetNullValue='No folder open'}" />
+            <TextBlock Text=" | " Margin="6,0" />
+            <TextBlock Text="{Binding Files.Count, StringFormat='{}{0} files'}" />
+            <TextBlock Text=" | " Margin="6,0" />
+            <TextBlock Text="{Binding SelectedFiles.Count, StringFormat='{}{0} selected'}" />
+            <TextBlock Text=" | " Margin="6,0" />
+            <TextBlock Text="{Binding PendingChangesCount, StringFormat='{}{0} pending changes'}" />
+            <StackPanel Orientation="Horizontal"
+                        IsVisible="{Binding UndoRedoDescription, Converter={StaticResource NullToCollapsedConverter}}">
+                <TextBlock Text=" | " Margin="6,0" />
+                <TextBlock Text="{Binding UndoRedoDescription, StringFormat='Last change: {0}'}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
