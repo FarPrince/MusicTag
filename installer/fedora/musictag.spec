@@ -4,6 +4,15 @@
 # the auto-generated -debugsource subpackage fails with "Empty %files file".
 %global debug_package %{nil}
 
+# The self-contained publish output ships libcoreclrtraceptprovider.so, which links against
+# liblttng-ust.so.0 for optional LTTng diagnostics tracing. It's dlopen'd lazily by coreclr only
+# if a tracing session is explicitly requested, so its absence isn't fatal to the app — but
+# rpmbuild's automatic dependency scanner still emits a hard Requires from its ELF NEEDED entry.
+# Fedora 44's lttng-ust (2.14) only ships the newer liblttng-ust.so.1 SONAME, so the auto-generated
+# requirement is unsatisfiable there; exclude it rather than pull in a compat package that doesn't
+# exist on this release.
+%global __requires_exclude ^liblttng-ust\\.so\\.0.*$
+
 # MusicTag Fedora RPM — Linux counterpart of installer/MusicTag.iss's Windows Inno Setup
 # installer. Packages a self-contained `dotnet publish` (Avalonia app + its own .NET runtime,
 # so users don't need dotnet installed) rather than building against Fedora's system dotnet
@@ -24,7 +33,7 @@
 # any `dotnet publish`/`dotnet restore` invocation — not vendored for offline/mock builds.
 
 Name:           musictag
-Version:        1.12.0
+Version:        1.13.0
 Release:        1%{?dist}
 Summary:        Audio file tag editor (Mp3tag-style)
 
@@ -80,6 +89,10 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
 
 %changelog
+* Wed Aug 05 2026 FarPrince <noreply@example.com> - 1.13.0-1
+- Version 1.13: system accent color (PreferUserAccentColor via the freedesktop portal), Fedora
+  packaging fixes (build-rpm.sh version regex, liblttng-ust.so.0 requires-exclude).
+
 * Wed Aug 05 2026 FarPrince <noreply@example.com> - 1.12.0-1
 - Version 1.12.
 

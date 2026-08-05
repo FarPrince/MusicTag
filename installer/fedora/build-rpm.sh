@@ -17,7 +17,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 spec_file="$script_dir/musictag.spec"
 
-version="$(grep -oP '(?<=^Version:\s{7,})\S+' "$spec_file")"
+version="$(grep -oP '^Version:\s+\K\S+' "$spec_file")"
 name="musictag"
 
 rpmbuild_root="${HOME}/rpmbuild"

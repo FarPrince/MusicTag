@@ -12,8 +12,14 @@
         <!-- FluentAvaloniaTheme in place of WPF-UI's ui:ThemesDictionary/ui:ControlsDictionary —
              both are WinUI2-resource-dictionary-shaped, so the same brush keys used throughout
              this app's XAML (ControlFillColorSecondaryBrush, SystemAccentColorPrimaryBrush,
-             TextFillColorPrimaryBrush, ControlElevationBorderBrush, ...) resolve unchanged. -->
-        <styling:FluentAvaloniaTheme />
+             TextFillColorPrimaryBrush, ControlElevationBorderBrush, ...) resolve unchanged.
+             PreferUserAccentColor pulls the OS accent color (TopLevel.PlatformSettings) instead
+             of FluentAvalonia's own fixed default blue — on Linux this resolves via
+             Avalonia.FreeDesktop's DBusPlatformSettings, which reads
+             org.freedesktop.appearance's accent-color from the xdg-desktop-portal (backed by
+             xdg-desktop-portal-kde/-gtk depending on desktop), the same portal property the
+             system settings app writes to; WPF-UI had no equivalent on the Windows original. -->
+        <styling:FluentAvaloniaTheme PreferUserAccentColor="True" />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     </Application.Styles>
 </Application>
