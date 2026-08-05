@@ -1,4 +1,8 @@
 %global dotnet_version 8.0
+# A self-contained `dotnet publish` output has no native C/C++ debug sources for rpmbuild's
+# find-debuginfo to collect — without this, %install leaves an empty debugsourcefiles.list and
+# the auto-generated -debugsource subpackage fails with "Empty %files file".
+%global debug_package %{nil}
 
 # MusicTag Fedora RPM — Linux counterpart of installer/MusicTag.iss's Windows Inno Setup
 # installer. Packages a self-contained `dotnet publish` (Avalonia app + its own .NET runtime,
@@ -20,7 +24,7 @@
 # any `dotnet publish`/`dotnet restore` invocation — not vendored for offline/mock builds.
 
 Name:           musictag
-Version:        1.11.0
+Version:        1.12.0
 Release:        1%{?dist}
 Summary:        Audio file tag editor (Mp3tag-style)
 
@@ -76,5 +80,8 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
 
 %changelog
+* Wed Aug 05 2026 FarPrince <noreply@example.com> - 1.12.0-1
+- Version 1.12.
+
 * Tue Aug 04 2026 FarPrince <noreply@example.com> - 1.11.0-1
 - Initial Fedora packaging of the Avalonia (cross-platform) port.

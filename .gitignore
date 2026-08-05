@@ -3,3 +3,4 @@ obj/
 .vs/
 *.user
 installer/output/
+installer/fedora/output/

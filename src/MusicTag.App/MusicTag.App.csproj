@@ -34,7 +34,7 @@
     <!-- Drives the exe's embedded file/product version (Explorer Properties > Details on
          Windows; rpm package metadata on Linux) — kept in sync with installer/MusicTag.iss's
          MyAppVersion and installer/fedora/musictag.spec's Version. -->
-    <Version>1.11.0</Version>
+    <Version>1.12.0</Version>
     <!-- Honored on Windows (suppresses the console window); ignored on Linux/macOS, where a
          GUI app never has one to begin with — the one Avalonia/dotnet publish output type that
          works correctly cross-platform with no per-OS conditional needed. -->
