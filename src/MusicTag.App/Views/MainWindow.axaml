@@ -68,6 +68,8 @@
                       ItemsSource="{Binding Files}"
                       AutoGenerateColumns="False"
                       IsReadOnly="False"
+                      CanUserResizeColumns="True"
+                      CanUserReorderColumns="True"
                       HeadersVisibility="Column"
                       SelectionMode="Extended"
                       GridLinesVisibility="Horizontal"

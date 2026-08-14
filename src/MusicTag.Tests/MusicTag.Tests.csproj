@@ -18,6 +18,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MusicTag.Core\MusicTag.Core.csproj" />
+    <!-- App.ResolveStartupFolder is pure path logic with no Avalonia runtime dependency, so it's
+         safe to unit test directly (via InternalsVisibleTo) despite MusicTag.App otherwise having
+         no UI-thread test host — see AppResolveStartupFolderTests. -->
+    <ProjectReference Include="..\MusicTag.App\MusicTag.App.csproj" />
   </ItemGroup>
 
 </Project>

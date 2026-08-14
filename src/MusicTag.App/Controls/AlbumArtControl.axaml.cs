@@ -3,7 +3,9 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 
@@ -182,42 +184,84 @@ public partial class AlbumArtControl : UserControl
     /// anywhere on the control (the image, the placeholder text, etc.).</summary>
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e) => Focus();
 
-    /// <summary>The album-art context menu — Paste is a menu entry sharing
+    /// <summary>The album-art context menu — Paste is an entry sharing
     /// <see cref="Behaviors.ClipboardImageHelper"/> with the Ctrl+V behavior so both stay in
     /// sync. Replace/Extract/Remove bind their existing Commands directly (so enabled/disabled
     /// state comes for free from each RelayCommand's own CanExecute); Copy/Paste are plain Click
-    /// handlers since they have no ICommand backing of their own.</summary>
-    private async void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    /// handlers since they have no ICommand backing of their own.
+    ///
+    /// Deliberately NOT a <see cref="MenuFlyout"/>/<see cref="Popup"/> — live testing on the real
+    /// desktop showed the Popup positioner ignoring/misplacing the horizontal component of an
+    /// explicit AnchorAndGravity offset for this control specifically, and that held regardless
+    /// of which control the popup was anchored to (this control, or the top-level window with a
+    /// pre-translated offset) or which windowing backend was forced (X11 or native Wayland) — see
+    /// gleaming-squishing-gizmo.md's investigation notes. That symptom matches a known class of
+    /// Avalonia Popup bug (e.g. GH #1573, GH #9845) rather than anything fixable from the offset
+    /// math here. A small owned, undecorated <see cref="Window"/> positioned via a plain
+    /// <see cref="Window.Position"/> (PixelPoint, physical pixels — the same units
+    /// <see cref="Visual.PointToScreen"/> returns) uses a completely different code path than
+    /// Popup and sidesteps the bug entirely. The menu content is a real
+    /// <see cref="MenuFlyoutPresenter"/> (the same presenter type a genuine
+    /// <see cref="MenuFlyout"/> uses, and the one FluentAvaloniaTheme already styles — see the
+    /// header column-chooser menu) hosted directly as this window's content, so it keeps the
+    /// same look (background, rounded corners, item hover highlight) as every other menu in the
+    /// app despite not going through MenuFlyout itself.</summary>
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (e.InitialPressMouseButton != MouseButton.Right)
             return;
 
         Focus();
 
-        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-        var canPaste = clipboard is not null && (await clipboard.GetFormatsAsync()).Length > 0;
+        var screenPoint = this.PointToScreen(e.GetPosition(this));
+        var owner = TopLevel.GetTopLevel(this) as Window;
 
-        var pasteItem = new MenuItem { Header = "Paste", IsEnabled = canPaste };
-        pasteItem.Click += async (_, _) => await TryPasteFromClipboardAsync();
-
+        // Paste starts disabled and is enabled asynchronously once the clipboard check resolves.
+        var pasteItem = new MenuItem { Header = "Paste", IsEnabled = false };
         var copyItem = new MenuItem { Header = "Copy", IsEnabled = !IsMixed && ImageBytes is { Length: > 0 } };
-        copyItem.Click += async (_, _) => await TryCopyImageToClipboardAsync();
+        var replaceItem = new MenuItem { Header = "Replace...", Command = ReplaceCommand };
+        var extractItem = new MenuItem { Header = "Extract...", Command = ExtractCommand };
+        var removeItem = new MenuItem { Header = "Remove", Command = RemoveCommand };
 
-        var menu = new ContextMenu
+        var presenter = new MenuFlyoutPresenter
         {
-            ItemsSource = new Control[]
-            {
-                new MenuItem { Header = "Replace...", Command = ReplaceCommand },
-                pasteItem,
-                copyItem,
-                new MenuItem { Header = "Extract...", Command = ExtractCommand },
-                new Separator(),
-                new MenuItem { Header = "Remove", Command = RemoveCommand },
-            },
+            ItemsSource = new Control[] { replaceItem, pasteItem, copyItem, extractItem, new Separator(), removeItem },
         };
 
-        menu.Open(this);
+        var menuWindow = new Window
+        {
+            SystemDecorations = SystemDecorations.None,
+            ShowInTaskbar = false,
+            CanResize = false,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Topmost = true,
+            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
+            Background = Brushes.Transparent,
+            Position = screenPoint,
+            Content = presenter,
+        };
+
+        menuWindow.Deactivated += (_, _) => menuWindow.Close();
+        pasteItem.Click += async (_, _) => { menuWindow.Close(); await TryPasteFromClipboardAsync(); };
+        copyItem.Click += async (_, _) => { menuWindow.Close(); await TryCopyImageToClipboardAsync(); };
+        foreach (var item in new[] { replaceItem, extractItem, removeItem })
+            item.Click += (_, _) => menuWindow.Close();
+
+        if (owner is not null)
+            menuWindow.Show(owner);
+        else
+            menuWindow.Show();
+
         e.Handled = true;
+
+        _ = UpdatePasteEnabledAsync(pasteItem);
+    }
+
+    private async Task UpdatePasteEnabledAsync(MenuItem pasteItem)
+    {
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        pasteItem.IsEnabled = clipboard is not null && (await clipboard.GetDataFormatsAsync()).Count > 0;
     }
 
     private async Task TryPasteFromClipboardAsync()

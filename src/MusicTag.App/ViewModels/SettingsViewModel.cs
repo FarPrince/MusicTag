@@ -123,6 +123,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnBackdropChanged(string value) => _themeService.ApplyBackdrop(value);
 
+    /// <summary>Gates the Settings window's backdrop picker to Windows only — Acrylic/Mica are
+    /// Windows-material concepts and the picker doesn't apply on Linux. The underlying
+    /// <see cref="AppSettings.Backdrop"/> value and <see cref="IThemeService.ApplyBackdrop"/>
+    /// mechanism (Avalonia's <c>TransparencyLevelHint</c>, which gracefully degrades per
+    /// compositor) are left fully intact on Linux — only this picker's visibility changes, so no
+    /// settings migration is needed and Windows behavior is unaffected.</summary>
+    public bool ShowBackdropOption { get; } = OperatingSystem.IsWindows();
+
     /// <summary>Backs the "Lyrics (LRCLib)" section's directory list — populated from
     /// <see cref="Core.Settings.AppSettings.LyricsSearchDirectories"/> in the constructor,
     /// mutated by <see cref="AddLyricsSearchDirectory"/>/<see cref="RemoveLyricsSearchDirectory"/>,

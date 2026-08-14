@@ -11,7 +11,7 @@
 ;   iscc MusicTag.iss
 
 #define MyAppName "MusicTag"
-#define MyAppVersion "1.14"
+#define MyAppVersion "1.15"
 #define MyAppPublisher "FarPrince"
 #define MyAppURL "https://github.com/FarPrince/MP3Tag"
 #define MyAppExeName "MusicTag.exe"

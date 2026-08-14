@@ -9,28 +9,23 @@ namespace MusicTag.App.Behaviors;
 /// Shared clipboard-image read/write logic used by both <see cref="ClipboardPasteImageBehavior"/>
 /// (Ctrl+V) and <see cref="Controls.AlbumArtControl"/>'s right-click Paste/Copy menu entries.
 ///
-/// Unlike WPF's <c>Clipboard.GetImage()</c>/<c>SetImage()</c> (which normalize to/from a single
-/// typed <c>BitmapSource</c> regardless of what the source app copied), Avalonia's
-/// <see cref="IClipboard"/> only exposes raw format-string/object pairs
-/// (<see cref="IClipboard.GetFormatsAsync"/>/<see cref="IClipboard.GetDataAsync"/>) — there is no
-/// single canonical "the clipboard image" accessor, and which MIME format string a real desktop
-/// clipboard actually offers for an image is compositor/toolkit-dependent (GTK/Nautilus, Qt/KDE,
-/// a browser, etc. don't all agree). <see cref="ImageFormats"/> lists every format this has been
-/// observed to need in practice; reading is deliberately tolerant of the value coming back as
-/// either raw <c>byte[]</c> or a <see cref="Stream"/> depending on backend. This is a genuine,
-/// documented platform difference from the WPF original — see CLAUDE.md's Avalonia-porting notes.
+/// Built on Avalonia's newer <see cref="DataFormat.Bitmap"/>/<see cref="IClipboard.SetDataAsync"/>/
+/// <see cref="IClipboard.TryGetDataAsync"/> API rather than the older <c>DataObject</c>/
+/// <c>SetDataObjectAsync</c>/<c>GetFormatsAsync</c>/<c>GetDataAsync</c> API it replaced — the older
+/// API round-trips a raw byte array under a hand-picked MIME string, while <c>DataFormat.Bitmap</c>
+/// carries a real <see cref="Bitmap"/> value end to end, avoiding a guessed-MIME-string mismatch.
+/// Also falls back to <see cref="IClipboard.TryGetInProcessDataAsync"/> (X11/Windows/macOS-only —
+/// retrieves the exact <c>IAsyncDataTransfer</c> this process itself last placed on the clipboard
+/// via <see cref="IClipboard.SetDataAsync"/>, bypassing the full cross-process round-trip) for the
+/// common copy-then-paste-within-this-app case, since that's more robust than depending on every
+/// Linux clipboard manager to correctly serve back a just-set image to its own owning process.
 /// </summary>
 public static class ClipboardImageHelper
 {
-    private static readonly string[] ImageFormats =
-    [
-        "image/png", "PNG", "image/bmp", "image/jpeg", "image/gif", "image/x-mswindowsdib",
-    ];
-
     /// <summary>Reads the clipboard's current image (if any) and re-encodes it as PNG bytes, so
     /// <see cref="MusicTag.Core.Models.AlbumArtEdit.NewImageBytes"/> always gets a concrete,
     /// ATL-readable byte format regardless of what format the source app/clipboard offered.
-    /// Returns null whenever there's nothing to paste, no format this recognizes is offered, or
+    /// Returns null whenever there's nothing to paste, no bitmap format is offered, or
     /// reading/decoding throws — never lets a paste attempt crash the app.</summary>
     public static async Task<byte[]?> TryGetImageBytesAsync(IClipboard? clipboard)
     {
@@ -39,30 +34,30 @@ public static class ClipboardImageHelper
 
         try
         {
-            var formats = await clipboard.GetFormatsAsync();
-            var format = ImageFormats.FirstOrDefault(f => formats.Contains(f, StringComparer.OrdinalIgnoreCase));
-            if (format is null)
+            // TryGetDataAsync's result is owned by the caller and must be disposed; the
+            // TryGetInProcessDataAsync fallback's result is still owned by the clipboard and must
+            // NOT be disposed here — only dispose when the first call actually produced a result.
+            var dataTransfer = await clipboard.TryGetDataAsync();
+            var ownsDataTransfer = dataTransfer is not null;
+            dataTransfer ??= await clipboard.TryGetInProcessDataAsync();
+            if (dataTransfer is null)
                 return null;
 
-            var raw = await clipboard.GetDataAsync(format);
-            var rawBytes = raw switch
+            try
             {
-                byte[] b => b,
-                Stream s => await ReadAllBytesAsync(s),
-                _ => null,
-            };
+                using var bitmap = await dataTransfer.TryGetBitmapAsync();
+                if (bitmap is null)
+                    return null;
 
-            if (rawBytes is not { Length: > 0 })
-                return null;
-
-            // Re-decode/re-encode so downstream code always sees a plain PNG regardless of the
-            // clipboard's original format (e.g. a raw DIB) — mirrors the WPF original's
-            // BitmapSource-normalize-to-PNG step.
-            using var sourceStream = new MemoryStream(rawBytes);
-            using var bitmap = new Bitmap(sourceStream);
-            using var pngStream = new MemoryStream();
-            bitmap.Save(pngStream);
-            return pngStream.ToArray();
+                using var pngStream = new MemoryStream();
+                bitmap.Save(pngStream);
+                return pngStream.ToArray();
+            }
+            finally
+            {
+                if (ownsDataTransfer)
+                    dataTransfer.Dispose();
+            }
         }
         catch (Exception)
         {
@@ -70,9 +65,8 @@ public static class ClipboardImageHelper
         }
     }
 
-    /// <summary>Writes <paramref name="pngBytes"/> to the clipboard under the "image/png" MIME
-    /// format — the same format this class itself reads back, and the most broadly recognized
-    /// image MIME type across Linux desktop clipboards.</summary>
+    /// <summary>Writes <paramref name="pngBytes"/> to the clipboard under the
+    /// <see cref="DataFormat.Bitmap"/> format.</summary>
     public static async Task SetImageAsync(IClipboard? clipboard, byte[] pngBytes)
     {
         if (clipboard is null)
@@ -80,20 +74,15 @@ public static class ClipboardImageHelper
 
         try
         {
-            var dataObject = new DataObject();
-            dataObject.Set("image/png", pngBytes);
-            await clipboard.SetDataObjectAsync(dataObject);
+            using var sourceStream = new MemoryStream(pngBytes);
+            var bitmap = new Bitmap(sourceStream);
+            var dataTransfer = new DataTransfer();
+            dataTransfer.Add(DataTransferItem.Create(DataFormat.Bitmap, bitmap));
+            await clipboard.SetDataAsync(dataTransfer);
         }
         catch (Exception)
         {
             // Never let a copy attempt crash the app — matches this class's own read-side stance.
         }
-    }
-
-    private static async Task<byte[]> ReadAllBytesAsync(Stream stream)
-    {
-        using var memoryStream = new MemoryStream();
-        await stream.CopyToAsync(memoryStream);
-        return memoryStream.ToArray();
     }
 }

@@ -33,7 +33,7 @@
 # any `dotnet publish`/`dotnet restore` invocation — not vendored for offline/mock builds.
 
 Name:           musictag
-Version:        1.14.0
+Version:        1.15.0
 Release:        1%{?dist}
 Summary:        Audio file tag editor (Mp3tag-style)
 
@@ -89,6 +89,15 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
 
 %changelog
+* Fri Aug 14 2026 FarPrince <noreply@example.com> - 1.15.0-1
+- Version 1.15: fix column resize/drag-reorder (Avalonia.Controls.DataGrid's resize/reorder
+  properties default to disabled, unlike WPF), rename collisions on Linux's case-sensitive
+  filesystems, Nautilus Scripts multi-selection, and the album-art right-click menu (both
+  rendering nothing under FluentAvaloniaTheme and, once switched to MenuFlyout, opening far from
+  the cursor — replaced with a positioned owner window hosting a real MenuFlyoutPresenter).
+  Rewrote clipboard image copy/paste onto Avalonia's newer DataFormat.Bitmap API. Hid the
+  Windows-only Acrylic/Mica backdrop picker on Linux.
+
 * Thu Aug 13 2026 FarPrince <noreply@example.com> - 1.14.0-1
 - Version 1.14: fix DataGrid column headers, gridlines, row selection/hover, and invalid-cell
   indicators rendering invisible on Linux (missing SystemXxxColor resources backfilled in

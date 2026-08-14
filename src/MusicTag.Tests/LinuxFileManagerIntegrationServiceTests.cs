@@ -28,8 +28,17 @@ public class LinuxFileManagerIntegrationServiceTests
         Assert.True(writer.ExecutableFlags[DesktopEntryPath]);
 
         Assert.True(writer.Files.ContainsKey(NautilusScriptPath));
-        Assert.Contains($"exec \"{expectedExePath}\" \"$target\"", writer.Files[NautilusScriptPath]);
+        var script = writer.Files[NautilusScriptPath];
+        Assert.Contains($"exec \"{expectedExePath}\" \"$target\"", script);
         Assert.True(writer.ExecutableFlags[NautilusScriptPath]);
+
+        // Multi-select / individual-file support: every selected path (not just the first)
+        // must be forwarded as its own argv entry via "$@", so a Nautilus selection of one or
+        // more audio files reaches App.ResolveStartupFolder intact rather than being truncated
+        // to a single item.
+        Assert.Contains("IFS=$'\\n' set -- $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS", script);
+        Assert.Contains($"exec \"{expectedExePath}\" \"$@\"", script);
+        Assert.DoesNotContain("head -n1", script);
     }
 
     [Fact]

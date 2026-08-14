@@ -114,7 +114,13 @@ public sealed class AudioFileService : IAudioFileService
         // Windows filesystems are case-insensitive but case-preserving, so a rename that only
         // changes case (e.g. "Song.mp3" -> "song.mp3") must not be flagged as "the target
         // already exists" — File.Exists(newPath) would report true because it's the same file.
-        var sameFileOnDisk = string.Equals(currentPath, newPath, StringComparison.OrdinalIgnoreCase);
+        // Linux filesystems are typically case-sensitive, so "Song.mp3" and "song.mp3" are two
+        // distinct files there — treating them as "the same file" would skip the collision check
+        // below and let File.Move fail with a raw IOException instead of the friendly
+        // RenameTargetExistsException/dialog.
+        var sameFileOnDisk = OperatingSystem.IsWindows()
+            ? string.Equals(currentPath, newPath, StringComparison.OrdinalIgnoreCase)
+            : string.Equals(currentPath, newPath, StringComparison.Ordinal);
 
         if (!sameFileOnDisk && File.Exists(newPath))
         {

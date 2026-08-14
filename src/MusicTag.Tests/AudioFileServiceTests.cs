@@ -175,6 +175,41 @@ public class AudioFileServiceTests
         return tempPath;
     }
 
+    /// <summary>Regression test for the Linux/case-sensitive-filesystem half of Rename's
+    /// same-file check: on a case-sensitive filesystem, "song.flac" and "Song.flac" are two
+    /// distinct files, so renaming one to collide with an existing other-case file must raise
+    /// <see cref="RenameTargetExistsException"/> rather than being silently treated as a same-
+    /// file no-op case change (which is the correct behavior only on Windows). Skipped on
+    /// Windows, where OrdinalIgnoreCase is the correct comparison and this collision can't be
+    /// constructed the same way (Windows won't let two case-variant files coexist on disk).</summary>
+    [Fact]
+    public void Rename_CaseVariantCollisionOnCaseSensitiveFilesystem_ThrowsRenameTargetExistsException()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var lowerPath = Path.Combine(tempDir, "song.flac");
+            var upperPath = Path.Combine(tempDir, "Song.flac");
+            File.Copy(TestAssetPaths.FlacSample, lowerPath);
+            File.Copy(TestAssetPaths.FlacSample, upperPath);
+
+            var service = new AudioFileService();
+            var loaded = service.Load(lowerPath);
+
+            Assert.Throws<RenameTargetExistsException>(() => service.Rename(loaded, "Song.flac"));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
     /// <summary>
     /// M9 build-out: one tiny ffmpeg-generated sample per remaining ffmpeg-encodable format
     /// family (plan section 9's automated set). Every sample was tagged at generation time

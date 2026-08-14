@@ -26,11 +26,13 @@
                 <ComboBox ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme}"
                           Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
 
-                <TextBlock Text="Window backdrop" FontWeight="SemiBold" Margin="0,0,0,4" />
-                <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
-                           Text="Applies instantly. Acrylic is a see-through blur; Mica is a subtler, near-opaque material. Support for either varies across Linux desktop compositors — an unsupported one falls back to a plain solid window." />
-                <ComboBox ItemsSource="{Binding BackdropOptions}" SelectedItem="{Binding Backdrop}"
-                          Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
+                <StackPanel IsVisible="{Binding ShowBackdropOption}">
+                    <TextBlock Text="Window backdrop" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,6"
+                               Text="Applies instantly. Acrylic is a see-through blur; Mica is a subtler, near-opaque material." />
+                    <ComboBox ItemsSource="{Binding BackdropOptions}" SelectedItem="{Binding Backdrop}"
+                              Width="160" HorizontalAlignment="Left" Margin="0,0,0,16" />
+                </StackPanel>
 
                 <TextBlock Text="File manager integration" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <TextBlock TextWrapping="Wrap" Opacity="0.8" FontSize="11" Margin="0,0,0,8"

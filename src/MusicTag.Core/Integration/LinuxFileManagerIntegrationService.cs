@@ -107,19 +107,26 @@ public sealed class LinuxFileManagerIntegrationService : IExplorerIntegrationSer
 
     /// <summary>Nautilus exposes every executable file under
     /// <c>~/.local/share/nautilus/scripts</c> in its right-click "Scripts" submenu, run with the
-    /// clicked location passed via environment variables rather than argv — set for a selected
-    /// item (right-click on the folder itself) or, with nothing selected (right-click on empty
-    /// folder background — the direct analogue of the Windows
-    /// <c>Directory\Background\shell</c> entry), the folder currently being viewed.</summary>
+    /// clicked location(s) passed via environment variables rather than argv — set for the
+    /// current selection (right-click on the folder itself, one or more individually-selected
+    /// audio files, or a multi-selection of either) or, with nothing selected (right-click on
+    /// empty folder background — the direct analogue of the Windows
+    /// <c>Directory\Background\shell</c> entry), the folder currently being viewed.
+    /// <c>NAUTILUS_SCRIPT_SELECTED_FILE_PATHS</c> is newline-delimited, one path per selected
+    /// item; every path is forwarded as its own argv entry (not just the first) so
+    /// App.ResolveStartupFolder can resolve a file selection to its containing folder, matching
+    /// the "select a file, get its folder opened" outcome Windows never even offers a menu entry
+    /// for since Explorer's file-manager context menu is folder-only.</summary>
     private static string BuildNautilusScript(string exePath) =>
         $"""
          #!/bin/sh
          if [ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ]; then
-             target=$(printf '%s\n' "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" | head -n1)
+             IFS=$'\n' set -- $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
+             exec "{exePath}" "$@"
          else
              target=$(printf '%s' "$NAUTILUS_SCRIPT_CURRENT_URI" | sed 's#^file://##')
+             exec "{exePath}" "$target"
          fi
-         exec "{exePath}" "$target"
 
          """;
 

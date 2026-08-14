@@ -19,9 +19,9 @@ namespace MusicTag.App.ViewModels;
 /// <see cref="Behaviors.DataGridSelectedItemsBehavior"/>, since DataGrid.SelectedItems isn't a
 /// bindable DependencyProperty) replaced the M2-M4 single-selection <c>SelectedItem</c>
 /// property — <see cref="EditPanel"/> now always reacts to the full selection (0/1/N files)
-/// rather than a single item, per plan section 5. M8 adds the toolbar/menu's quick backdrop-toggle
-/// (<see cref="ToggleBackdrop"/>) and the Help menu's "Keyboard Shortcuts" entry
-/// (<see cref="ShowShortcuts"/>).
+/// rather than a single item, per plan section 5. M8 adds the Help menu's "Keyboard Shortcuts"
+/// entry (<see cref="ShowShortcuts"/>); the backdrop toggle lives in
+/// <see cref="SettingsViewModel.Backdrop"/> instead.
 /// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {

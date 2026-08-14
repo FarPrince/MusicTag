@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -558,7 +559,7 @@ public partial class MainWindow : Window
         if ((e.Source as Visual)?.FindAncestorOfType<DataGridColumnHeader>() is null)
             return;
 
-        var menu = new ContextMenu();
+        var menu = new MenuFlyout { Placement = PlacementMode.Pointer };
         var items = new List<Control>();
         AddColumnToggleItem(items, "Title", () => _viewModel.IsTitleColumnVisible, v => _viewModel.IsTitleColumnVisible = v);
         AddColumnToggleItem(items, "Artist", () => _viewModel.IsArtistColumnVisible, v => _viewModel.IsArtistColumnVisible = v);
@@ -581,8 +582,7 @@ public partial class MainWindow : Window
         AddColumnToggleItem(items, "Modified", () => _viewModel.IsModifiedColumnVisible, v => _viewModel.IsModifiedColumnVisible = v);
 
         menu.ItemsSource = items;
-        menu.PlacementTarget = FileGrid;
-        menu.Open(FileGrid);
+        menu.ShowAt(FileGrid);
         e.Handled = true;
     }
 

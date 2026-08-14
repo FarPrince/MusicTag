@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -9,6 +10,10 @@ using MusicTag.Core.History;
 using MusicTag.Core.Integration;
 using MusicTag.Core.Services;
 using MusicTag.Core.Settings;
+
+// Lets MusicTag.Tests exercise ResolveStartupFolder directly (pure path logic, no Avalonia
+// runtime dependency) without making it public API.
+[assembly: InternalsVisibleTo("MusicTag.Tests")]
 
 namespace MusicTag.App;
 
@@ -75,18 +80,28 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    /// <summary>An Explorer/file-manager-triggered launch (a real directory passed as a command-
-    /// line arg — either the "Open with MusicTag" entry on a folder, which supplies the clicked
-    /// folder's path, or the folder-background entry, which supplies the currently viewed
-    /// folder) always wins over the configured default folder, since the user just explicitly
-    /// asked to open that specific folder. Falls back to AppSettings.DefaultStartupFolder if it
-    /// still exists on disk (it may have been renamed/deleted since it was configured);
-    /// otherwise returns null, leaving MainWindowViewModel.CurrentFolderPath at its default
-    /// null — the "empty, Open Folder prompt available" state the status bar and
-    /// OpenFolderCommand already handle natively, with no extra empty-state UI needed.</summary>
-    private static string? ResolveStartupFolder(IReadOnlyList<string> args, AppSettings settings)
+    /// <summary>An Explorer/file-manager-triggered launch (a real directory or file passed as a
+    /// command-line arg — the "Open with MusicTag" entry on a folder, which supplies the clicked
+    /// folder's path; the folder-background entry, which supplies the currently viewed folder;
+    /// or, Linux-only, Nautilus's Scripts menu invoked on one or more selected audio files, which
+    /// supplies each file's path) always wins over the configured default folder, since the user
+    /// just explicitly asked to open that specific folder. A file argument resolves to its
+    /// containing directory — Windows never offers this menu entry on an individual file at all,
+    /// but Nautilus does, and there's no "open these files across possibly-different folders"
+    /// concept anywhere else in the app, so opening the (first) file's folder is the closest
+    /// equivalent to what a folder-argument launch already does. Falls back to
+    /// AppSettings.DefaultStartupFolder if it still exists on disk (it may have been
+    /// renamed/deleted since it was configured); otherwise returns null, leaving
+    /// MainWindowViewModel.CurrentFolderPath at its default null — the "empty, Open Folder
+    /// prompt available" state the status bar and OpenFolderCommand already handle natively, with
+    /// no extra empty-state UI needed.</summary>
+    internal static string? ResolveStartupFolder(IReadOnlyList<string> args, AppSettings settings)
     {
-        var explorerLaunchFolder = args.FirstOrDefault(Directory.Exists);
+        var explorerLaunchFolder = args
+            .Select(arg => Directory.Exists(arg) ? arg
+                : File.Exists(arg) ? Path.GetDirectoryName(arg)
+                : null)
+            .FirstOrDefault(path => path is not null);
         if (explorerLaunchFolder is not null)
         {
             return explorerLaunchFolder;
