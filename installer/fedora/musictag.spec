@@ -33,7 +33,7 @@
 # any `dotnet publish`/`dotnet restore` invocation — not vendored for offline/mock builds.
 
 Name:           musictag
-Version:        1.13.0
+Version:        1.14.0
 Release:        1%{?dist}
 Summary:        Audio file tag editor (Mp3tag-style)
 
@@ -89,6 +89,12 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
 
 %changelog
+* Thu Aug 13 2026 FarPrince <noreply@example.com> - 1.14.0-1
+- Version 1.14: fix DataGrid column headers, gridlines, row selection/hover, and invalid-cell
+  indicators rendering invisible on Linux (missing SystemXxxColor resources backfilled in
+  App.axaml, since FluentAvaloniaTheme doesn't define the classic UWP-style keys that
+  Avalonia.Controls.DataGrid's bundled Fluent.xaml theme depends on).
+
 * Wed Aug 05 2026 FarPrince <noreply@example.com> - 1.13.0-1
 - Version 1.13: system accent color (PreferUserAccentColor via the freedesktop portal), Fedora
   packaging fixes (build-rpm.sh version regex, liblttng-ust.so.0 requires-exclude).

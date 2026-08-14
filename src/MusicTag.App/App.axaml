@@ -8,6 +8,47 @@
          IThemeService.ApplyTheme(settings.Theme) before the main window is shown, which swaps
          it for whichever of System/Light/Dark is persisted (mirrors the WPF original's
          Application.Resources ui:ThemesDictionary placeholder-Theme comment). -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- Avalonia.Controls.DataGrid/Themes/Fluent.xaml (below) styles column headers,
+                     gridlines, row selection/hover, invalid-cell indicators, and row-group headers
+                     entirely via DynamicResource lookups of these classic UWP/WPF-era "SystemXxxColor"
+                     keys. FluentAvaloniaTheme is a WinUI3-style theme with different token names
+                     (TextFillColorPrimary, ControlFillColorSecondaryBrush, ...) and never defines
+                     these — left unresolved, a DynamicResource Color lookup silently falls back to
+                     Colors.Transparent, which is why column headers render at the correct size and
+                     position but are completely invisible (background and text both transparent).
+                     Backfilling the keys here — rather than restyling DataGridColumnHeader directly —
+                     fixes every affected DataGrid visual at once, matching the structure (Dark/Default
+                     theme dictionaries) that DataGrid's own Fluent.xaml expects. -->
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="SystemBaseHighColor">#FFFFFFFF</Color>
+                    <Color x:Key="SystemBaseMediumColor">#C5FFFFFF</Color>
+                    <Color x:Key="SystemBaseMediumLowColor">#C5FFFFFF</Color>
+                    <Color x:Key="SystemAltHighColor">#FF2A2A2A</Color>
+                    <Color x:Key="SystemAltMediumColor">#FF262626</Color>
+                    <Color x:Key="SystemChromeMediumColor">#FF2D2D2D</Color>
+                    <Color x:Key="SystemChromeMediumLowColor">#FF383838</Color>
+                    <Color x:Key="SystemListLowColor">#14FFFFFF</Color>
+                    <Color x:Key="SystemListMediumColor">#24FFFFFF</Color>
+                    <Color x:Key="SystemErrorTextColor">#FFE81123</Color>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <Color x:Key="SystemBaseHighColor">#FF000000</Color>
+                    <Color x:Key="SystemBaseMediumColor">#FF5D5D5D</Color>
+                    <Color x:Key="SystemBaseMediumLowColor">#FF5D5D5D</Color>
+                    <Color x:Key="SystemAltHighColor">#FFF3F3F3</Color>
+                    <Color x:Key="SystemAltMediumColor">#FFE6E6E6</Color>
+                    <Color x:Key="SystemChromeMediumColor">#FFE0E0E0</Color>
+                    <Color x:Key="SystemChromeMediumLowColor">#FFECECEC</Color>
+                    <Color x:Key="SystemListLowColor">#14000000</Color>
+                    <Color x:Key="SystemListMediumColor">#24000000</Color>
+                    <Color x:Key="SystemErrorTextColor">#FFC42B1C</Color>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
     <Application.Styles>
         <!-- FluentAvaloniaTheme in place of WPF-UI's ui:ThemesDictionary/ui:ControlsDictionary —
              both are WinUI2-resource-dictionary-shaped, so the same brush keys used throughout
